@@ -1,0 +1,28 @@
+public function login(Request $request)
+    {
+        $this->validate($request, [
+            'email' => 'required',
+            'password' => 'required',
+        ]);
+        $checkAuth = User::where('email', $request->email)
+            ->orWhere('phone', $request->email)
+            ->first();
+        if ($checkAuth) {
+            if ($checkAuth->status == 0) {
+                Toastr::warning('warning', 'Opps! your account has been suspends');
+                return redirect()->back()->with('error', 'Opps! your account has been suspends');
+            } else {
+                if (password_verify($request->password, $checkAuth->password)) {
+                    Auth::login($checkAuth);
+                    Toastr::success('success', 'Thanks , You are login successfully');
+                    return redirect('superadmin/dashboard');
+                } else {
+                    Toastr::error('Opps!', 'Sorry! your password wrong');
+                    return redirect()->back()->with('error', 'Sorry! your password wrong');
+                }
+            }
+        } else {
+            Toastr::error('Opps!', 'Opps! you have no account');
+            return redirect()->back()->with('error', 'Opps! you have no account');
+        }
+    }
