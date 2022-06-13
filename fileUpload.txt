@@ -1,0 +1,26 @@
+1. Upload by php 
+public function fileUploadPHP($file, $path)
+    {
+        if (!file_exists($path)) {
+            mkdir($path, 0777, true);
+        }
+        $name = Str::random(50) . preg_replace('~[\\\\/:*? "<>|@!#%&]~', '-', $file->getClientOriginalName());
+        $file->move($path, $name);
+        $fileUrl = $path . $name;
+        return $fileUrl;
+    }
+
+2. File Upload by laravel intervention image 
+public function fileUpload($file, $path, $width = null, $height = null)
+{
+    if (!file_exists($path)) {
+    mkdir($path, 0777, true);
+    }
+    $file_url = $path . Str::random(50) . preg_replace('~[\\\\/:*? "<>|@!#%&]~', '-', $file->getClientOriginalName());
+    $upload = Image::make($file);
+    if ($width && $height) {
+        $upload->resize($width, $height);
+    }
+    $upload->save($file_url);
+    return $file_url;
+}
