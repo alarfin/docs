@@ -1,0 +1,20 @@
+<script>
+        $(function(){
+            $('body').on('change', '#division_id', function(){
+                var division_id = $('#division_id').val();
+                var options = '<option value=""> Select district </option>';
+                $.ajax({
+                    method: "GET",
+                    url: "{{ route('get_division_districts') }}",
+                    data: {'division_id':division_id},
+                }).done(function( response ) {
+                    // console.log(response);
+                    response.forEach(function(item,i){
+                        options += '<option value="'+item.id+'"> '+item.name+' </option>';
+                    });
+                    $('#district_id').html(options);
+                });
+            })
+        })
+
+    </script>
