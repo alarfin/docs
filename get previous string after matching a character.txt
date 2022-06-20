@@ -1,0 +1,4 @@
+
+$token = "employee#f43t4vb34vg45436";
+$string = substr($token, 0, strpos($token, '#'));
+dd($string);
