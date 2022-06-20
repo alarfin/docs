@@ -1,0 +1,2 @@
+
+1. {{ $show_data->appends($_GET)->links() }}
