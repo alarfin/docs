@@ -1,0 +1,9 @@
+foreach ($request->permission ?? [] as $permission) {
+            DB::table('permissions')->insert([
+                'name' => $permission,
+                'guard_name' => 'web',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        dd('Inser permission : ' . count($request->permission));
