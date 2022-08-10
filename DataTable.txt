@@ -99,6 +99,7 @@ Server side datatable
     	->rawColumns(['action'])
     	->toJson();
 5. On change filtering or selected change event call dataTable Again with filter data
+	Pass data inside ajax request as  d.customer_id = $('#customer_id').val();
 	$('#inventory_type').change(function () {
                 $('#table').DataTable().ajax.reload();
             });
