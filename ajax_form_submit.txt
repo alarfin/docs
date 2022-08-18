@@ -1,0 +1,28 @@
+function storeCustomer() {
+                var formData = new FormData($('#customer-form')[0]);
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('store_new_customer') }}",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            $('#modal-customer').modal('hide');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success',
+                                text: response.message,
+                            }).then((result) => {
+                                // $('#table').DataTable().ajax.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Oops...',
+                                text: response.message,
+                            });
+                        }
+                    }
+                });
+            }
