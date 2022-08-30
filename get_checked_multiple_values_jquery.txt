@@ -1,0 +1,4 @@
+parcel_ids = [];
+            $("input[name='parcel_select[]']:checked").each(function() {
+                parcel_ids.push($(this).val());
+            });
