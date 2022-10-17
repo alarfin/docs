@@ -1,0 +1,4 @@
+ public function generateSlug($string)
+    {
+        return preg_replace('~[\\\\/:*? "<>|@!#%&()]~', '-', $string);
+    }
