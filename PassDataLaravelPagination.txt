@@ -1,2 +1,5 @@
 
 1. {{ $show_data->appends($_GET)->links() }}
+For show bootstrap pagination
+use Illuminate\Pagination\Paginator;
+Inside boot => Paginator::useBootstrap();
