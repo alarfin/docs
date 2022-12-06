@@ -20,3 +20,13 @@ RewriteRule ^(.*)$ public/$1 [L]
 <IfModule mime_module>
   AddHandler application/x-httpd-php81 .php
 </IfModule>
+
+
+# If forbidden 403 show use these htaccess
+
+## Redirect to public folder
+<IfModule mod_rewrite.c>
+    RewriteEngine on
+    RewriteRule ^$ public/ [L]
+    RewriteRule (.*) public/$1 [L]
+</IfModule>
