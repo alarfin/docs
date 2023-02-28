@@ -1,0 +1,30 @@
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="keywords"
+        content="bangladesh, keywords here">
+    <!-- Schema.org markup for Google+ -->
+    <meta itemprop="name" content="Meta title">
+    <meta itemprop="description" content="Meta description">
+    <meta itemprop="image" content="Meta Image">
+
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="product">
+    <meta name="twitter:site" content="@publisher_handle">
+    <meta name="twitter:title" content="Meta title">
+    <meta name="twitter:description" content="Meta description">
+    <meta name="twitter:creator" content="@author_handle">
+    <meta name="twitter:image" content="{{ uploaded_asset(get_setting('meta_image')) }}">
+
+    <!-- Open Graph data --> 
+    <meta property="og:title" content="Meta title" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="Meta url" />
+    <meta property="og:image" content="Meta Image" />
+    <meta property="og:description" content="Meta description" />
+    <meta property="og:site_name" content="Website name" />
+
+    <meta name="app-url" content="Website url">
+    <meta name="file-base-url" content="website base url">
+    <title>@yield('meta_title', 'Default website title')</title>
