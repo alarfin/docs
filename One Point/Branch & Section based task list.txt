@@ -1,0 +1,39 @@
+ERP Branch based task list:
+1.	Section assign to branch & one branch has multiple section (Create, Read, Update, Delete).
+2.	User assign to branch (Create, Read, Update, Delete).
+3.	User assign to multiple branch based section (Create, Read, Update, Delete).
+4.	All crud operation need add branch & section id which need to show report branch or section wise.
+5.	All report need to filtering option branch wise & branch based one or multiple section based data.
+6.	Login system update by branch based & then go to specific section.
+7.	These reports are already exist & need to update filtering data show.
+Trial Balance
+Ledger
+Cash & Bank Statement
+Salary sheet
+Supplier report
+Supplier due report
+Customer report
+Customer due report
+Purchase report
+Purchase product report
+Purchase return report
+Sale report
+Sale product report
+Sale return report
+Product stock report
+Sale profit loss report
+Net profit loss
+Daily balance summery
+Student payment collections report
+Student based attendance report
+Student result report
+DSR report
+Agent report
+Mother account balance
+Salary sheet
+Online information report
+
+Bkash full system
+Flexiload full system
+Bank Section
+
