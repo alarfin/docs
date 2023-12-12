@@ -1,0 +1,12 @@
+public function generateSlug($string)
+{
+    // Process 01
+    return preg_replace('~[\\\\/:*? "<>|@!#%&()]~', '-', $string);
+
+    // Process 02
+    use Illuminate\Support\Str; // use this class dependancy
+    Str::slug($request->title);
+
+    // Process 03
+    str_slug($request->get('title'),'-');
+}

@@ -1,0 +1,20 @@
+
+# Get pagination 
+    Expens::paginate(10); // Return with each page number link
+    Expens::simplePaginate(10); // return with previous & next page link
+# For show bootstrap pagination
+    use Illuminate\Pagination\Paginator;
+    Add these in AppServiceProvider Inside boot
+    Paginator::useBootstrap();
+
+# Show pagination 
+    {{ $users->links() }} // show default pagination 
+    {{ $users->onEachSide(5)->links() }} // Show each side 5 page number 
+    {{ $show_data->appends($_GET)->links() }} // Pass filtering data 
+    {{ $users->appends(['sort' => 'votes'])->links() }} // Pass filtering data 
+
+# Pagination append accessor data
+    $expenses = $query->simplePaginate($request->per_page)->through(function (Expense $expense) {
+        return $expense->append("status_name");
+    });
+

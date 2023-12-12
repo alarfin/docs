@@ -1,0 +1,47 @@
+# Create new project - 
+	laravel new blog
+# Create new project - 
+	composer create-project --prefer-dist laravel/laravel blog
+
+# Create table - 
+	php artisan make:migration create_users_table --create=users
+	php artisan migrate
+
+# First time migrate need-Go to App->providers->AppServiceProvider.php-> 
+	use Illuminate\Support\Facades\Schema;
+	Schema::defaultStringLength(191); (in the boot method)
+
+# Undo last crteate table - 
+	php artisan migrate:rollback
+
+# Undo last 5 table - 
+	php artisan migrate:rollback --step=5
+
+# Empty all table - 
+	php artisan migrate:refresh
+
+# Drop all table - 
+	php artisan migrate:fresh
+
+# Model add custom table 
+	protected $table = "your_table_name"
+
+# Model add custom primary key 
+	protected $primaryKey= "student_id"
+
+# Show flash session dismissable alert message 
+	@if(session('success_msg'))
+	  <div class="alert alert-success alert-dismissable">
+		  <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+		  {{session('success_msg')}}
+	  </div>
+	@endif
+	@if($errors->any())
+		  @foreach($errors->all() as $error)
+			<div class="alert alert-warning alert-dismissable">
+				<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+				{{$error}}
+			</div>
+		@endforeach
+	@endif
+

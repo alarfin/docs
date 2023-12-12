@@ -1,0 +1,108 @@
+# Simple Datatables
+
+1. For ordering use 
+    $('#table').DataTable({order:[[0,"asc"]]});
+
+2. Select option custom quantity 
+    "lengthMenu": [[10, 25, 50, 100, 200, -1], [10, 25, 50, 100, 200, "All"]],
+
+3. For remover ordering
+	"ordering": false
+
+Server side datatable 
+1. Install Yajra datatable for laravel
+2. page script 
+    <script>
+        $(function() {
+            $('.dataTable').DataTable({
+                processing: true,
+                serverSide: true,
+		        "lengthMenu": [[10, 25, 50, 100, 200, -1], [10, 25, 50, 100, 200, "All"]],
+                ajax: {
+                    url: '{{ route('serviceDataTable') }}',
+                    data: function (d) {
+                        d.test = '1'
+                    }
+                },
+                columns: [
+		            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+                    {data: 'service_type', name: 'service_type'},
+                    {data: 'service_number', name: 'service_number'},
+                    {data: 'location.name', name: 'location_id'},
+                    {data: 'rent', name: 'rent'},
+                    {data: 'status', name: 'status'},
+                    {data: 'action', name: 'action'},
+                ],
+		        "columnDefs": [{
+                        className: "text-center",
+                        "targets": [0]
+                    },
+                    {
+                        className: "text-right",
+                        "targets": [6]
+                    },
+                    {
+                        className: "text-right",
+                        "targets": [7]
+                    }
+                ],
+                // Export Button 
+                dom: 'Bfrtip',
+                buttons: [
+                    'pageLength',
+                    'colvis',
+                    {
+                        extend: 'copyHtml5',
+                        exportOptions: {
+                            columns: ':visible'
+                        }
+                    },
+                    {
+                        extend: 'excelHtml5',
+                        exportOptions: {
+                            columns: ':visible'
+                        }
+                    },
+                    {
+                        extend: 'csvHtml5',
+                        exportOptions: {
+                            columns: ':visible'
+                        }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        exportOptions: {
+                            columns: ':visible'
+                        }
+                    },
+                    {
+                        extend: 'print',
+                        exportOptions: {
+                            columns: ':visible'
+                        }
+                    },
+                ],
+                // order:[[1,"asc"]]
+            });
+
+        });
+    </script>
+3. start by $query = Model::query();
+4. return data by 
+	return DataTables::of($query)
+	->addIndexColumn()
+    	->addColumn('columName', function (Model $variable) { return $variable data })
+    	->editColumn('columName', function (Model $variable) { return $variable data })
+    	->filterColumn('columName', function ($query, $keyword) {
+                $query->whereDate('columName', $keyword);
+            })
+    	->rawColumns(['action'])
+    	->toJson();
+5. On change filtering or selected change event call dataTable Again with filter data
+	Pass data inside ajax request as  d.customer_id = $('#customer_id').val();
+	$('#inventory_type').change(function () {
+                $('#table').DataTable().ajax.reload();
+            });
+6. For export button require these file 
+	pdfmake.js, pdfMake.vfs.js,datatable.js
+

@@ -1,0 +1,8 @@
+# Print specific div content
+    var APP_URL = '{!! url()->full()  !!}';
+    function getprint(prinarea) {
+        $("div").removeClass("table-responsive");
+        $('body').html($('#'+prinarea).html());
+        window.print();
+        window.location.replace(APP_URL)
+    }

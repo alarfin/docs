@@ -1,0 +1,12 @@
+# Custom login process 01
+    Session::flush();
+    Auth::logout();
+
+# Custom logout process 02
+    $this->guard()->logout();
+    $request->session()->invalidate();
+    return $this->loggedOut($request) ?: redirect('/login');
+
+# Custom logout process 03
+    return redirect('login')->with(Auth::logout());
+

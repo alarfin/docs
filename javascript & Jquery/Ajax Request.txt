@@ -1,0 +1,49 @@
+
+# Ajax requirest with custom data value.
+    $(function(){
+        $('body').on('change', '#division_id', function(){
+            var division_id = $('#division_id').val();
+            var options = '<option value=""> Select district </option>';
+            $.ajax({
+                method: "GET",
+                url: "{{ route('get_division_districts') }}",
+                data: {'division_id':division_id},
+            }).done(function( response ) {
+                // console.log(response);
+                response.forEach(function(item,i){
+                    options += '<option value="'+item.id+'"> '+item.name+' </option>';
+                });
+                $('#district_id').html(options);
+            });
+        })
+    })
+
+# Ajax form submit with form all data 
+    function storeCustomer() {
+        var formData = new FormData($('#customer-form')[0]);
+        $.ajax({
+            type: "POST",
+            url: "{{ route('store_new_customer') }}",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    $('#modal-customer').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: response.message,
+                    }).then((result) => {
+                        // $('#table').DataTable().ajax.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: response.message,
+                    });
+                }
+            }
+        });
+    }

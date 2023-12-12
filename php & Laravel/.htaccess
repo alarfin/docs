@@ -1,8 +1,8 @@
+# Example .htaccess code 01
 RewriteEngine On 
 RewriteCond %{REQUEST_FILENAME} !-f 
 RewriteCond %{REQUEST_FILENAME} !-d 
 RewriteRule ^(.*)$ index.php/$1 [L]
-
 # php -- BEGIN cPanel-generated handler, do not edit
 <IfModule mime_module>
   AddHandler application/x-httpd-php80 .php
@@ -10,21 +10,18 @@ RewriteRule ^(.*)$ index.php/$1 [L]
 # php -- END cPanel-generated handler, do not edit
 
 
-#Use for artisan serve htaccess
-
+# Example .htaccess code 02 (artisan serve htaccess)
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
-
 <IfModule mime_module>
   AddHandler application/x-httpd-php81 .php
 </IfModule>
 
 
-# If forbidden 403 show use these htaccess
-
-## Redirect to public folder
+# Example .htaccess code 03 (If forbidden 403 show use these htaccess)
+# Redirect to public folder
 <IfModule mod_rewrite.c>
     RewriteEngine on
     RewriteRule ^$ public/ [L]

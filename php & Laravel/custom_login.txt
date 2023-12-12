@@ -1,0 +1,29 @@
+# Password check process 01
+    $user = User::find($id);
+    $hasher = app('hash');
+    if ($hasher->check($request->pssword, $user->password)) {
+        // Success
+    }
+
+# Password check process 02
+    import class -> use Illuminate\Support\Facades\Hash;
+    $user = User::find($id);
+    if (Hash::check($request->pssword, $user->password)) {
+        // Success
+    }
+
+# Password check process 03
+    if (password_verify($request->pssword, $user->password)) {
+        // Success
+    }
+
+# Password check process 04
+    if (Auth::attempt(['email' => $email, 'password' => $password])) {
+        // Authentication passed...
+        return redirect()->intended('dashboard');
+    }
+
+# Password check process 05
+    $user = Auth::getProvider()->retrieveByCredentials($credentials);
+    Auth::login($user);
+    
