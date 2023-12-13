@@ -1,0 +1,9 @@
+
+In the search box type settings.json
+paste the following line there
+"search.useReplacePreview": false
+
+Example:
+    {
+        "search.useReplacePreview": false
+    }
