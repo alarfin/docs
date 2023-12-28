@@ -1,0 +1,95 @@
+
+Administration:
+    Student class:
+        id,name,user_id,auth_id,guard,status_id
+        student class list:
+    Student Department:
+        id,name,user_id,auth_id,guard,status_id
+        Department list:
+    Shift:
+        id,name,user_id,auth_id,guard,status_id
+    Section:
+        id,name,user_id,auth_id,guard,status_id
+    Student session:
+        id,name,user_id,auth_id,guard,status_id
+    Gender:
+        id,name,user_id,auth_id,guard,status_id
+    Blood Group:
+        id,name,user_id,auth_id,guard,status_id
+    Religion:
+        id,name,user_id,auth_id,guard,status_id
+    Subject:
+        id,name,user_id,auth_id,guard,status_id
+    Employee Department:
+        id,name,user_id,auth_id,guard,status_id
+    Designation:
+        id,department_id,name,user_id,auth_id,guard,status_id
+
+Student:
+	Online Applications: 
+        Student application for admission from the website.  Fields are – 
+        fullname,email,mobile,photo,date_of_birth,gender,blood_group,religion
+        department,class,shift,section,session, last_institute,last_instite_tc,last_institute_testimonial
+
+        Filtering: fullname,email,mobile,department,class,shift,section,session 
+	Add Student:
+        Personal: fullname,email,mobile,photo,password,date_of_birth,gender,blood_group,religion,
+        Academic: 
+            StudentPromotion:
+                department,student_class,shift,section,student_session, class_roll, roll_no,registration_no,
+                optinal_subject_id 
+            last_institute,last_instite_tc,last_institute_testimonial
+        Family: 
+            Father: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
+            Mother: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
+        Address:
+            Present address: division,district,upazila,postal_code,address 
+            Permenant address: division,district,upazila,postal_code,address 
+            
+	Student list:
+        photo,id_no,name,department,class,shift,section,status,details,edit,delete,
+        foltering: id_no,name,department,class,shift,section,status
+
+    Alumni student list:
+        photo,id_no,name,department,class,shift,section,status,details
+        foltering: id_no,name,department,class,shift,section,session   
+    Student settings:
+
+Employee:
+    Add employee: 
+    Employee list: 
+    Former employee: 
+
+Committee: 
+    Add committee:
+    Committee list:
+    Former committee list:
+
+Attendance management:
+    Student attendance:
+        Attendance by id_no:
+        Attendance manually:
+        Attendance history:
+    Employee attendance:
+        Attendance by id_no:
+        Attendance manually:
+        Attendance history:
+
+Exam management:
+    Add exam:
+    Exam list:
+    Mark register by subject:
+    Mark register by student:
+    Tabulation sheet:
+    Marksheet:
+    Progress card:
+    
+Roles & Permission:
+    Add role:
+    Role list:
+User: 
+    Client user: 
+    Root user:
+
+
+

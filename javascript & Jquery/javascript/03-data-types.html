@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript Data Types </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with data types.
+    </h1>
+    <p>
+        Javascript output show in browser console panel
+    </p>
+
+    <script>
+        /******************
+         * Javascript variable can holds any type of data. When adding a number & string, javascript treats the number as a string.
+         * There are 8 data types in javascript. These are:
+         * string, number, bigInt, boolean, undefined, null,symbol,object
+         * *************/
+
+        // String: A string is a series of characters. String are written in single or double quotes.
+        let name = "Md. Al Arfin Rokon";
+        console.log('String example is: '+name);
+
+        // number: All javascript numbers are stored as decimals number. Number can write with or without decimal.
+        let x = 12;
+        let y = 12.5 
+        console.log('Number example is: '+x);
+
+        // bigInt: All javascript big numbers stored in bigInt
+        let big_int = BigInt("123456789012345678901234567890"); 
+        console.log('Big Integer example is: '+big_int);
+
+
+        // Boolean: Boolean can only two values. These are- True or False. Booleans are often used in conditional testing. 
+        let bx = true;
+        let by = false;
+        console.log('Boolean example is: '+bx);
+
+        // object : object conains three types data- object, array object, date object
+        const person = {
+            'first_name' : "Md. Al Arfin",
+            'last_name' : "Rokon",
+        }
+        console.log('Object example is: '+person.first_name);
+
+        // Array object 
+        const numbers = [12,15,50,20,30];
+        console.log('Array example is: '+numbers);
+
+        // date object 
+        const dateObj = new Date('2023-12-18');
+        console.log('Date example is: '+dateObj);
+
+        
+    </script>
+</body>
+
+</html>

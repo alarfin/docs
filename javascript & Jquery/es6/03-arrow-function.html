@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Arrow functions </title>
+</head>
+<body>
+
+    <h1>
+        Working with arrow function.
+    </h1>
+    <p>
+        Javascript output show in browser console panel
+    </p>
+    
+    <script>
+        // Arrow functions allows a short syntax for writing function expressions.
+        // It not needed to write function, return, curly bracks keywords
+
+        // Old function example 
+        var x = function(x,y){
+            return x*y;
+        }
+        console.log('Geeral function result is: '+x(4,5));
+
+        // ES-6 function example
+        var x = (x,y) => x*y;
+        console.log('Arrow function result is: '+x(3,5));
+        // Arrow function do not have own this keyword value.
+        // They are not well suited for defining object methods.
+        // Arrow function ommit the return & curly brackets for single line statement.
+    </script>
+</body>
+</html>

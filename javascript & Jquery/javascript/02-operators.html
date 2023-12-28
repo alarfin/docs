@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript operators </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with operators.
+    </h1>
+    <p>
+        Javascript output show in browser console panel
+    </p>
+
+    <script>
+        /******************
+         * There are different types of javascript operators. These are:
+         * Arithmetic, assignment, comparison, string, logical, bitwise,ternary, types operators.
+         * *************/
+
+        // Arithmetic operator are used to arithmetic on numbers.
+        var addition = 10+5; // additional arithmetic operator
+        console.log('The arithmetic addition value is: '+addition);
+
+        var subtraction = 10-5; // subtraction arithmetic operator
+        console.log('The arithmetic subtraction value is: '+subtraction);
+
+        var multiplication = 10*5; // multiplication arithmetic operator
+        console.log('The arithmetic multiplication value is: '+multiplication);
+
+        var exponential = 10**5; // exponential arithmetic operator
+        console.log('The arithmetic exponential value is: '+exponential);
+
+        var division = 10/5; // division arithmetic operator
+        console.log('The arithmetic division value is: '+division);
+
+        var modulus = 10%3; // modulus arithmetic operator (Division remider)
+        console.log('The arithmetic modulus value is: '+modulus);
+
+        var increment = 10; // increment arithmetic operator
+        increment++;
+        console.log('The arithmetic increment value is: '+increment);
+
+        var decremnt = 10; // decremnt arithmetic operator
+        decremnt--;
+        console.log('The arithmetic decremnt value is: '+decremnt);
+
+        // Comparision operator
+        5 == 5 // Equal value
+        5 === 5 // Equal value & data type 
+        4 != 5 // is not equal
+        4 !== 5 // is not equal value or is not equal type.
+        5 > 4 // Greater than 
+        4 < 5 // less than
+        4 >= 5// greater than or equal to
+        4 <= 5 // less than or equal to
+        5?'true':'false' // ternary operator
+
+        // String comparison
+        // let text1 = "A";
+        // let text2 = "B";
+        let text1 = "60";
+        let text2 = "500";
+        let result = text1 < text2; // Check string first character alphabatically 
+        console.log(result);
+
+        // Logical operators:
+        5==5 && 4==4 // Logical AND operator
+        5==5 || 4==4 // Logical OR operator
+        5!=4 // Logical NOT operator
+
+        // Type operators: 
+        var type = [12,23,45,55];
+        console.log(typeof(type)); // Returns the type of a variable.
+        // console.log(instanceof(type)); // Returns true if an object is an instance of an object type
+
+
+        
+    </script>
+</body>
+
+</html>

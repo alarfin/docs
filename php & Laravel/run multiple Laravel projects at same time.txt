@@ -1,0 +1,5 @@
+TCP lestener can not accept multiple same port at the same time.
+We can use different port for web server instance.
+
+# Laravel project run this code for multiple project run same time 
+    php artisan serve --port=8001  // port can changed

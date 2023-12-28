@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript Events </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with events.
+    </h1>
+    <p>
+        <button onclick="document.getElementById('demo').innerHTML = Date()">
+            Show time
+        </button>
+        <button onclick="displayDate()">
+            Date show by onclick event function
+        </button>
+        <div id="demo">
+
+        </div>
+    </p>
+
+    <script>
+        /******************
+         * HTML events are things that happen the HTML elements.
+         * An HTML can be somthing the browser does or a user does.
+         * Common events are:
+         * onchange: An html element has been changed.
+         * onclick: The user click on html element.
+         * onmouseover: The user moves the mouse over a html element.
+         * onmouseout: The use moves the mouse away from the html element.
+         * onkeydown: The user push the keyboard down.
+         * onload: The browser has finished the html page.
+         * *************/
+
+        // function example: 
+        function displayDate(){
+            document.getElementById('demo').innerHTML = Date();
+        }
+
+        
+    </script>
+</body>
+
+</html>

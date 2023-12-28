@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript Number </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with number.
+    </h1>
+    <p>
+        <div id="demo">
+
+        </div>
+    </p>
+
+    <script>
+        /******************
+         * Javascript has only one type number. It write with or without decimal.
+         * Javascript number always 64-bit floating point.
+         * *************/
+
+        // Example: 
+        let num1 = 10; // without decimal
+        let num2 = 10.50; // with decimal
+
+        // Extra large or extra small number written as scientific notation.
+        let el = 123e5 // extra large. real value is 12300000
+        let es = 123e-5 // extra small. real value is 0.00123
+
+        // Integer accurate value upto 15 digit
+        let x = 999999999999999;   // x will be 999999999999999
+        let y = 9999999999999999;  // y will be 10000000000000000
+
+        // we can't sum integer & string value.
+        let num3 = 'Test';
+        console.log(num1+num3);
+
+        // Javascript string value is number, it automatic convert string to number without addition operator.
+        let num4 = '20';
+        let num5 = '20';
+        let r1 = num5+num4; // addition not working;
+        console.log(r1);
+        let r2 = num5-num4; // subtraction working;
+        console.log(r2);
+        let r3 = num5*num4; // multiplication working;
+        console.log(r3);
+        let r4 = num5/num4; // division working;
+        console.log(r4);
+
+        // NaN : It is not a number. It's javascript reserved keyword. 
+        // Trying to do arithmetic with non numeric value, it's result show NaN.
+        let nan = 100 / "Apple";
+        console.log(nan);
+
+        let nan2 = 100 / "10";  // If string is numeric, working perfectly.
+        console.log(nan2);
+        
+        // isNaN(): It check the value is NaN or not. Return true or false result;
+        console.log(isNaN(nan));
+
+        // Infinity : If, result is outside the possible number, It show infinty value.
+
+        // Number can use as a object;
+        let onum1 = new Number(num1);
+        console.log(onum1);
+
+        // BigInt() : BigInt variables are used to store big integer value.
+        let bigint1 = 1234567890123456789012345n;
+        let bigint2 = BigInt(1234567890123456789012345);
+        console.log(bigint1+'\n'+bigint2);
+        // console.log(bigint1/1); // BigInt & number value can't calculate
+        let bigintadd = 1n;
+        console.log(bigint1+bigintadd); 
+
+        // toString() : Return value as string
+        tostring1 = 1200;
+        console.log(tostring1.toString());
+        
+    </script>
+</body>
+
+</html>

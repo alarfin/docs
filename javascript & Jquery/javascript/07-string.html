@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript String </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with string.
+    </h1>
+    <p>
+        <button onclick="document.getElementById('demo').innerHTML = Date()">
+            Show time
+        </button>
+        <button onclick="displayDate()">
+            Date show by onclick event function
+        </button>
+        <div id="demo">
+
+        </div>
+    </p>
+
+    <script>
+        /******************
+         * Javascript string are for store & manipulating text.
+         * A javascript string is zero or more character written inside quotes.
+         * String can be write inside single or double quotes.
+         * *************/
+
+        // function example: 
+        let name = 'Md. Al Arfin';
+        let nickName = "Rokon";
+
+        // Get length og string
+        console.log('The length of name is: '+ name.length);
+
+        // backslash escape character
+        // \' use for escape single quotes(')
+        // \" use for escape double quotes(")
+        // \\ use for escape backslash(\)
+
+        // Break or new line of a string
+        let fullname = 'Md. Al Arfin '+
+            'Rokon';
+        console.log(fullname);
+
+        // String can define as a object. Don't use this. It's new keyword complicates the code & slows down execution time.
+        let objName = new String(name);
+        console.log(objName);
+
+        // Slice() : takes 2 parameters(start,end). 
+        let sliceText = 'Bangladesh is a beautiful country.';
+        console.log(sliceText.slice(0,5)); // return start to end position data.
+        console.log(sliceText.slice(6)); // return all data after 6th position.
+        console.log(sliceText.slice(-6)); // return last (right to left) 6th position data.
+        console.log(sliceText.slice(-0,-8)); // return all after removing last (right to left) 0 to 8th position data.
+        
+        // substring() : takes 2 parameters(start,end). less than 0 value treated as 0.
+        let substringText = 'Bangladesh is a beautiful country.';
+        console.log('\n Substring result: ');
+        console.log(substringText.substring(0,5)); //return start to end position data.
+        console.log(substringText.substring(6)); // return all data after 6th position.
+        
+        // substr() : takes 2 parameters(start,end). less than 0 start & end value not working.
+        let substrText = 'Bangladesh is a beautiful country.';
+        console.log('\n Substr result: ');
+        console.log(substrText.substr(0,5)); //return start to end position data.
+        console.log(substrText.substr(6)); // return all data after 6th position.
+        console.log(substrText.substr(-6)); // return last (right to left) 6th position data.
+
+        // replace(): The method replace a specific value in string. Has 2 parameter(Exist text, new text)
+        console.log('\n Replace result: ');
+        let replaceText = 'Bangladesh is a beautiful country.';
+        console.log(replaceText.replace('beautiful','wonderful')); // return only the first match replace data
+        console.log(replaceText.replace(/beautiful/g,'wonderful')); // return the all match replace data
+        console.log(replaceText.replaceAll('beautiful','wonderful')); // return the all match replace data
+        console.log(replaceText.replace('Beautiful','wonderful')); // case sensetive
+        console.log(replaceText.replace(/Beautiful/i,'wonderful')); // remove case sensetive
+
+        // indexOf() : return the character matching position
+        let searchIndex = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log(searchIndex.indexOf('is'));  // return first matching position number 
+        console.log(searchIndex.lastIndexOf('is'));  // return last matching position number 
+        console.log(searchIndex.indexOf('is', 14));  // second parameter contains matching search starting position 
+
+        // search() : search same as indexOf(). Difference is search() can not take 2nd parameter &
+        // indexOf() method can not take powerful search values like regular expression.
+
+        // match() : match() method return array data.
+        let matchText = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log(matchText.match('is'));
+        console.log(matchText.match(/is/g)); // return all matching as array data
+        console.log(matchText.match(/Is/gi)); // return all matching with case insensative as array data
+        
+        // matchAll() : matchAll() method return array data. Does not work in Internet explorer browser.
+        let matchAllText = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log(Array.from(matchAllText.matchAll('is')));
+        console.log(Array.from(matchAllText.matchAll(/is/g))); // return all matching as array data
+        console.log(Array.from(matchAllText.matchAll(/Is/gi))); // return all matching with case insensative as array data
+
+        // includes() : The method return true value if matching string.
+        let includeText = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log(includeText.includes('is'));
+        console.log(includeText.includes('is',12)); // 2nd parameter contain start position for matching.
+
+        // startsWith() : startsWith() method return true value if string start the mathing string. It is case sensitive.
+        let startsWithText = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log('\n startsWith result: ');
+        console.log(startsWithText.startsWith('My'));
+        console.log(startsWithText.startsWith('My', 3)); // 2nd parameter contains start position.
+
+        // endsWith() : endsWith() method return true value if string start the mathing string. It is case sensitive.
+        let endsWithText = 'My name is Md. Al Arfin Rokon.He is good.';
+        console.log('\n endsWith result: ');
+        console.log(endsWithText.endsWith('My'));
+        console.log(endsWithText.endsWith('good', 12)); // 2nd parameter contains start position.
+
+        // Template literals or back tics or string template
+        let english = "english";
+        let backTicText = `He is honest man. 
+            He is also educated.`;
+        console.log(backTicText);
+        let backticvar = `He is expert ${english}`; // use variable in back tic called string interplation.
+        console.log(backticvar);
+        
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Spread operator (...) </title>
+</head>
+<body>
+
+    <h1>
+        Working with Spread operator (...).
+    </h1>
+    <p>
+        Javascript output show in browser console panel
+    </p>
+    
+    <script>
+        // The ...(spread operator) expands an iterable (like an array) into more elements.
+
+        // example 
+        const x1 = ['January','February','March'];
+        const x2 = ['April','May','June'];
+        const x3 = ['July','Agust','Septembar'];
+
+        var months = [...x1,...x2];
+        // var months = [...x2];
+        console.log(months);
+
+        // The ...(spread operator) can be used to expands an iterable into more arguments for function calls.
+        const numbers = [12,14,54,23,123,66,56,150,35];
+        const maxvalue = Math.max(...numbers);
+        console.log('The max value is '+ maxvalue);
+    </script>
+</body>
+</html>
