@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript Map </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with Map.
+    </h1>
+    <p>
+        <div id="demo">
+
+        </div>
+    </p>
+
+    <script>
+        /******************
+         * A javascript map holds key-value pair where key can be any data type.
+         * *************/
+        const map = new Map();
+        map.set('country', 'Bangladesh'); // Insert data into map 
+        map.set('apple','350');
+        console.log(map);
+        map.set('Banana','40');
+        console.log(map.get('country'));
+        console.log(map.has('Banana'));  // Check key exist or not in map.
+        map.delete('Banana');  // Delete data by key.
+        console.log(map.values());  // Get value iterations.
+        
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Javascript Set </title>
+</head>
+
+<body>
+
+    <h1>
+        Working with set.
+    </h1>
+    <p>
+        <div id="demo">
+
+        </div>
+    </p>
+
+    <script>
+        /******************
+         * A javascript Set is a collection of unique value.
+         * *************/
+        const set = new Set();
+        set.add('Bangladesh');
+        set.add('Pakistan');
+        set.add('Bangladesh'); // Data must be unique 
+        console.log(set);
+        set.add('India')
+        console.log(set);
+        console.log(set.has('Bangladesh')); // check data exist or not 
+        set.delete('India'); // Delete data from set 
+        console.log(set);
+        console.log(set.values()); // Get value iteration for set.
+        
+    </script>
+</body>
+
+</html>

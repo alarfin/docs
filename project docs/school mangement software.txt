@@ -57,6 +57,20 @@ Student:
 
 Employee:
     Add employee: 
+        Personal: id_no,fullname,email,mobile,nid_no,photo,password,date_of_birth,gender,blood_group,religion,
+        Education: 
+            EmployeeEducation:
+                exam,institute,board,year,result
+        Employment: 
+            index_no,department_id,designation_id,gross_salary,note,status_id
+        Family: 
+            Father: f_name,f_mobile_no, f_email,f_photo, f_profession,f_others_information
+            Mother: m_name,m_mobile_no, m_email,m_photo,m_profession,m_others_information
+            Spouse: s_name,s_mobile_no,s_email,s_photo,s_profession,s_others_information
+        Address:
+            Present address: pre_division,pre_district,pre_upazila,pre_postal_code,pre_address 
+            Permenant address: per_division,per_district,per_upazila,per_postal_code,per_address
+
     Employee list: 
     Former employee: 
 
@@ -78,11 +92,29 @@ Attendance management:
 Exam management:
     Add exam:
     Exam list:
+    Exam Routine:
+    Seat plan:
+    Admit card:
     Mark register by subject:
     Mark register by student:
     Tabulation sheet:
     Marksheet:
     Progress card:
+
+Accounts:
+    Account heads:
+    Accounts:
+    
+Transactions:
+    Student Fee Types:
+    Student invoices:
+    Incomes:
+    Expenses:
+
+Documents:
+    Transfer Certificate:
+    Testimonial:
+    Certificate:
     
 Roles & Permission:
     Add role:
