@@ -1,8 +1,20 @@
-
+Top Header:
+    User:
+        Profile:
+        Update profile:
+        Change password:
+        Logout:
+Dashboard: 
+    Root user:
+        Total client,
+    Admin user:
+        Total Student, Total Teacher, Total Designation based count,
+        Today income, Today expense
 Administration:
     Student class:
         id,name,user_id,auth_id,guard,status_id
         student class list:
+
     Student Department:
         id,name,user_id,auth_id,guard,status_id
         Department list:
@@ -24,27 +36,30 @@ Administration:
         id,name,user_id,auth_id,guard,status_id
     Designation:
         id,department_id,name,user_id,auth_id,guard,status_id
+    Award types:
+        id,department_id,name,user_id,auth_id,guard,status_id
 
 Student:
 	Online Applications: 
         Student application for admission from the website.  Fields are – 
-        fullname,email,mobile,photo,date_of_birth,gender,blood_group,religion
+        name,email,mobile,photo,date_of_birth,gender,blood_group,religion
         department,class,shift,section,session, last_institute,last_instite_tc,last_institute_testimonial
 
-        Filtering: fullname,email,mobile,department,class,shift,section,session 
+        Filtering: name,email,mobile,department,class,shift,section,session 
 	Add Student:
-        Personal: fullname,email,mobile,photo,password,date_of_birth,gender,blood_group,religion,
+        Personal: name,email,mobile,photo,password,date_of_birth,gender_id,blood_group_id,religion_id,
+                father_id,mother_id
         Academic: 
             StudentPromotion:
-                department,student_class,shift,section,student_session, class_roll, roll_no,registration_no,
-                optinal_subject_id 
-            last_institute,last_instite_tc,last_institute_testimonial
+                student_id,department_id,student_class_id,shift_id,section_id,student_session_id, class_roll, roll_no,registration_no,
+                optinal_subject_id,status_id 
+            last_institute,last_instite_tc,last_institute_testimonial,user_id,auth_id,guard,status_id
         Family: 
             Father: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
             Mother: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
         Address:
-            Present address: division,district,upazila,postal_code,address 
-            Permenant address: division,district,upazila,postal_code,address 
+            Present address: student_id,division_id,district_id,upazila_id,postal_code,address 
+            Permenant address: student_id,division_id,district_id,upazila_id,postal_code,address 
             
 	Student list:
         photo,id_no,name,department,class,shift,section,status,details,edit,delete,
@@ -52,7 +67,20 @@ Student:
 
     Alumni student list:
         photo,id_no,name,department,class,shift,section,status,details
-        foltering: id_no,name,department,class,shift,section,session   
+        foltering: id_no,name,department,class,shift,section,session  
+
+    Promote Student:
+        Promote one class to another class.
+
+    Student ID CARD Generate:
+        Generate ID card & print.
+    
+    Syllabus:
+        Add,edit,delete,show syllabus.
+
+    Assignments:
+        Add,edit,delete,show assignments.
+
     Student settings:
 
 Employee:
@@ -74,6 +102,13 @@ Employee:
     Employee list: 
     Former employee: 
 
+    Employee ID Card:
+    Employee awards:    
+
+Payroll:
+    Generate Payslips:
+    Manage payslips:
+
 Committee: 
     Add committee:
     Committee list:
@@ -89,10 +124,16 @@ Attendance management:
         Attendance manually:
         Attendance history:
 
+Leave Management:
+    Public holidays:
+    Student leave applications:
+    Employee leave applications:
+
 Exam management:
+    Grade setup:
+    Mark type:
     Add exam:
     Exam list:
-    Exam Routine:
     Seat plan:
     Admit card:
     Mark register by subject:
@@ -101,11 +142,32 @@ Exam management:
     Marksheet:
     Progress card:
 
+Routine Management:
+    Class Routine:
+    Exam Routine:
+
+Library Management:
+    Book categories:
+    Book:
+    Members:
+    Issued books:
+
+Transport Management:
+    Vehicles:
+    Transports:
+    Members:
+
+Hostel management:
+    Hostel categories:
+    Hostel:
+    Members:
+
 Accounts:
     Account heads:
     Accounts:
-    
+
 Transactions:
+    Payment methods:
     Student Fee Types:
     Student invoices:
     Incomes:
@@ -115,12 +177,37 @@ Documents:
     Transfer Certificate:
     Testimonial:
     Certificate:
-    
+
+Email Management:
+    Setup email smtp server:
+    Email to students:
+    Email to employees:
+    Custom email:
+
+SMS Management:
+    Setup SMS API:
+    SMS to students:
+    SMS to present students:
+    SMS to absent students:
+    SMS to employees:
+    SMS to present employee:
+    SMS to absent employee:
+    Custom sms:
+
+Reports:
+    Student attendance:
+    Employee attendance:
+    Income:
+    expenses:
+    exams
+
 Roles & Permission:
     Add role:
     Role list:
+
 User: 
     Client user: 
+        Users:
     Root user:
 
 
