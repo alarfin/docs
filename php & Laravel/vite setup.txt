@@ -1,0 +1,16 @@
+
+1. Install node package.
+    npm install 
+    cache clear & composer update.
+2. Add these code to master blade file inside head tag.
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+3. Add css  files to resource/js/app.css 
+    import '../assets/css/bootstrap.min.css'
+
+3. Add js files to resource/js/app.js 
+    import '../assets/js/bootstrap.min.js'
+
+4. Build the files.
+    npm run build 
+

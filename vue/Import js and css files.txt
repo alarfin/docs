@@ -1,0 +1,14 @@
+
+
+You could import them in the main.js as follows :
+
+  import './assets/css/bootstrap.min.css';
+  import  './assets/css/main.css'
+  ....
+or in App.vue :
+
+ <template>...</template>
+ <script>...</script>
+ <style src='./assets/css/bootstrap.min.css'></style>
+ <style src='./assets/css/main.css'></style>
+

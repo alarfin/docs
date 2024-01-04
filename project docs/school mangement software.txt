@@ -39,21 +39,34 @@ Administration:
     Award types:
         id,department_id,name,user_id,auth_id,guard,status_id
 
+User:
+    client_id,role_id,name,email,mobile_no,photo,user_type,reset_code,password,auth_id,status_id
+
+Admin:
+
+Client: 
+
+Guardian:
+    client_id,relation,profession,education,gender_id,blood_group_id,religion_id,auth_id,
+
 Student:
 	Online Applications: 
         Student application for admission from the website.  Fields are – 
-        name,email,mobile,photo,date_of_birth,gender,blood_group,religion
+        date_of_birth,gender,blood_group,religion
         department,class,shift,section,session, last_institute,last_instite_tc,last_institute_testimonial
 
         Filtering: name,email,mobile,department,class,shift,section,session 
 	Add Student:
-        Personal: name,email,mobile,photo,password,date_of_birth,gender_id,blood_group_id,religion_id,
-                father_id,mother_id
+        Personal: user_id,name,email,mobile,photo,password,date_of_birth,gender_id,blood_group_id,religion_id,
+                guardian_id,
         Academic: 
-            StudentPromotion:
+            StudentAcademic:
                 student_id,department_id,student_class_id,shift_id,section_id,student_session_id, class_roll, roll_no,registration_no,
                 optinal_subject_id,status_id 
-            last_institute,last_instite_tc,last_institute_testimonial,user_id,auth_id,guard,status_id
+                StudentSubject:
+                    student_acaemic_id,subject_id,total_mark,pass_mark,decrese_in_result
+            last_institute,last_instite_tc,last_institute_testimonial,auth_id,status_id
+                
         Family: 
             Father: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
             Mother: name,mobile_no, email,photo,password,profession,education,monthly_income,others_information
@@ -63,7 +76,7 @@ Student:
             
 	Student list:
         photo,id_no,name,department,class,shift,section,status,details,edit,delete,
-        foltering: id_no,name,department,class,shift,section,status
+        filtering: id_no,name,department,class,shift,section,status
 
     Alumni student list:
         photo,id_no,name,department,class,shift,section,status,details
@@ -85,7 +98,7 @@ Student:
 
 Employee:
     Add employee: 
-        Personal: id_no,fullname,email,mobile,nid_no,photo,password,date_of_birth,gender,blood_group,religion,
+        Personal: id_no,fullname,email,mobile,nid_no,photo,password,date_of_birth,gender_id,blood_group_id,religion_id,
         Education: 
             EmployeeEducation:
                 exam,institute,board,year,result
@@ -111,6 +124,9 @@ Payroll:
 
 Committee: 
     Add committee:
+        department_id,designation_id,name,email,mobile_no,photo,id_no,gender_id,blood_group_id,religion_id,f_name,m_name,
+        pre_division,pre_district,pre_upazila,pre_postal_code,pre_address,
+        per_division,per_district,per_upazila,per_postal_code,per_address
     Committee list:
     Former committee list:
 
@@ -131,12 +147,23 @@ Leave Management:
 
 Exam management:
     Grade setup:
-    Mark type:
+        grade_name, from_mark, to_mark, point, user_id, auth_id, guard, status_id
+    Mark distribution type:
+        name, types, user_id, auth_id, guard, status_id
+    Exam type:
+        name, user_id, auth_id, guard, status_id
     Add exam:
+        name,exam_type_id,mark_type_id,student_class_id,student_session_id,user_id, auth_id, guard, status_id
+        ExamDepartment: exam_id,department_id
+        ExamSubject: exam_id,subject_id,total_mark,pass_park,
     Exam list:
     Seat plan:
+        college name,address,seat plan,exam name, student name,class,department,section,roll
     Admit card:
+        college name,address,Admit card,exam name, student name,class,department,section,roll, student_photo, Author signature,student signature 
+
     Mark register by subject:
+        Class,department,
     Mark register by student:
     Tabulation sheet:
     Marksheet:
@@ -205,10 +232,8 @@ Roles & Permission:
     Add role:
     Role list:
 
-User: 
-    Client user: 
-        Users:
-    Root user:
+Client:
+
 
 
 
