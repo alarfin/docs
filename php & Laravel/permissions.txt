@@ -1,0 +1,87 @@
+1. Create Helper function inside App\Custom\Helper.php
+<?php
+namespace App\Custom;
+use Illuminate\Support\Facades\Route;
+class Helper
+{
+    public static function getRoutsWithHeader()
+    {
+        // dd(request()->route()->getName());
+        $main_routes = Route::getRoutes()->getRoutes();
+        // dd($main_routes);
+        $permissions = array();
+        foreach ($main_routes as $key => $main_route) {
+            $action = $main_route->getAction();
+            // dd($action);
+            if (isset($action['controller'])) {
+                $method = explode('@', $action['controller']);
+                if (isset($method[1])) {
+                    $heading = preg_replace('/\\\\/', ' ', substr($method[0], 21));
+                    $heading = str_replace('Controller', '', $heading);
+                    $heading = preg_replace('/(?<!\ )[A-Z]/', ' $0', $heading);
+                    $heading = substr($heading, 1);
+                    if (isset($action['as'])) {
+                        $route_name = $action['as'];
+                    } else {
+                        $route_name = $method[1];
+                    }
+                    $removeHeadings = [
+                        'ndle Requests Handle Requests', 'ontend Assets Frontend Assets', 'ort File Uploads File Upload', 'Installer',
+                        'ort File Uploads File Preview', 'Auth Login', 'Auth Register', 'Auth Forgot Password', 'Auth Reset Password', 'Auth Confirm Password'
+                    ];
+                    // dd($heading);
+                    if ($heading && !in_array($heading, $removeHeadings)) {
+                        if ($route_name) {
+                            $permissions[$heading][] = $route_name;
+                        } else {
+                            // $permissions[$heading][] = $method[1];
+                        }
+                    }
+                }
+            }
+        }
+
+        return $permissions;
+    }
+}
+
+
+2. Create page form & pass permissions data:
+use App\Custom\Helper;
+$permissions = $permissions = Helper::getRoutsWithHeader();
+<div class="row">
+    <div class="col-md-12">
+        <div class="accordion" id="permission-accordion">
+            @foreach ($permissions as $key => $routes)
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="{{ $key }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse{{ $key }}" aria-expanded="true"
+                            aria-controls="collapse{{ $key }}">
+                            {{ $key }}
+                        </button>
+                    </h2>
+                    <div id="collapse{{ $key }}" class="accordion-collapse collapse"
+                        aria-labelledby="{{ $key }}" data-bs-parent="#permission-accordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                @foreach ($routes as $route)
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" name="permissions[]" type="checkbox"
+                                                value="" id="flexCheckChecked">
+                                            <label class="form-check-label" for="flexCheckChecked">
+                                                {{ ucfirst(str_replace('.', ' ', $route)) }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                @endforeach
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
