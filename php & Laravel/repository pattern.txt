@@ -1,0 +1,306 @@
+1. php artisan make:interface /Interfaces/ProductRepositoryInterface
+<?php
+
+namespace App\Interfaces;
+
+interface ProductRepositoryInterface
+{
+    public function index();
+    public function getById($id);
+    public function store(array $data);
+    public function update(array $data,$id);
+    public function delete($id);
+}
+
+2. php artisan make:class /Repositories/ProductRepository
+<?php
+
+namespace App\Repository;
+use App\Models\Product;
+use App\Interfaces\ProductRepositoryInterface;
+class ProductReposiotry implements ProductRepositoryInterface
+{
+    public function index(){
+        return Product::all();
+    }
+
+    public function getById($id){
+       return Product::findOrFail($id);
+    }
+
+    public function store(array $data){
+       return Product::create($data);
+    }
+
+    public function update(array $data,$id){
+       return Product::whereId($id)->update($data);
+    }
+    
+    public function delete($id){
+       Product::destroy($id);
+    }
+}
+
+3. php artisan make:provider RepositoryServiceProvider
+You must load this classes automatically. In composer.json add "classmap": ["app/Repositories"]
+"autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        },
+        "classmap": [
+            "app/Repositories"            
+        ]
+    },
+
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use App\Interfaces\ProductRepositoryInterface;
+use App\Repository\ProductReposiotry;
+class RepositoryServiceProvider extends ServiceProvider
+{
+    /**
+     * Register services.
+     */
+    public function register(): void
+    {
+        $this->app->bind(ProductRepositoryInterface::class,ProductReposiotry::class);
+    }
+
+    /**
+     * Bootstrap services.
+     */
+    public function boot(): void
+    {
+        //
+    }
+}
+
+4. php artisan make:request StoreProductRequest
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Contracts\Validation\Validator;
+class StoreProductRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'name' => 'required',
+            'details' => 'required'
+        ];
+    }
+
+    public function failedValidation(Validator $validator)
+    {
+        throw new HttpResponseException(response()->json([
+            'success'   => false,
+            'message'   => 'Validation errors',
+            'data'      => $validator->errors()
+        ]));
+    }
+}
+
+5. Common ApiResponseClass create
+php artisan make:class /Classes/ApiResponseClass
+<?php
+
+namespace App\Classes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Log;
+class ApiResponseClass
+{
+    public static function rollback($e, $message ="Something went wrong! Process not completed"){
+        DB::rollBack();
+        self::throw($e, $message);
+    }
+
+    public static function throw($e, $message ="Something went wrong! Process not completed"){
+        Log::info($e);
+        throw new HttpResponseException(response()->json(["message"=> $message], 500));
+    }
+
+    public static function sendResponse($result , $message ,$code=200){
+        $response=[
+            'success' => true,
+            'data'    => $result
+        ];
+        if(!empty($message)){
+            $response['message'] =$message;
+        }
+        return response()->json($response, $code);
+    }
+
+}
+
+6. create product resource (for api return data)
+php artisan make:resource ProductResource
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ProductResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =>$this->id,
+            'name' => $this->name,
+            'details' => $this->details
+        ];
+    }
+}
+
+7. php artisan make:controller ProductController
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Product;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Interfaces\ProductRepositoryInterface;
+use App\Classes\ResponseClass;
+use App\Http\Resources\ProductResource;
+use Illuminate\Support\Facades\DB;
+class ProductController extends Controller
+{
+    
+    private ProductRepositoryInterface $productRepositoryInterface;
+    
+    public function __construct(ProductRepositoryInterface $productRepositoryInterface)
+    {
+        $this->productRepositoryInterface = $productRepositoryInterface;
+    }
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        $data = $this->productRepositoryInterface->index();
+
+        return ResponseClass::sendResponse(ProductResource::collection($data),'',200);
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(StoreProductRequest $request)
+    {
+        $details =[
+            'name' => $request->name,
+            'details' => $request->details
+        ];
+        DB::beginTransaction();
+        try{
+             $product = $this->productRepositoryInterface->store($details);
+
+             DB::commit();
+             return ResponseClass::sendResponse(new ProductResource($product),'Product Create Successful',201);
+
+        }catch(\Exception $ex){
+            return ResponseClass::rollback($ex);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show($id)
+    {
+        $product = $this->productRepositoryInterface->getById($id);
+
+        return ResponseClass::sendResponse(new ProductResource($product),'',200);
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Product $product)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(UpdateProductRequest $request, $id)
+    {
+        $updateDetails =[
+            'name' => $request->name,
+            'details' => $request->details
+        ];
+        DB::beginTransaction();
+        try{
+             $product = $this->productRepositoryInterface->update($updateDetails,$id);
+
+             DB::commit();
+             return ResponseClass::sendResponse('Product Update Successful','',201);
+
+        }catch(\Exception $ex){
+            return ResponseClass::rollback($ex);
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy($id)
+    {
+         $this->productRepositoryInterface->delete($id);
+
+        return ResponseClass::sendResponse('Product Delete Successful','',204);
+    }
+}
+
+8. Api route
+php artisan install:api
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProductController;
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');
+
+
+Route::apiResource('/products',ProductController::class);
+
