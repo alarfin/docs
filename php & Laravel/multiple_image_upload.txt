@@ -1,0 +1,100 @@
+HTML:
+<div class="row">
+    <div class="col-md-12">
+        <h5 class=""> Images <small class="text-danger"> (1200x628 px) </small> </h5>
+        <div class="img-thumbs img-thumbs-hidden" id="img-preview">
+            
+        </div>
+        <div class="form-group" id="multi-images">
+            <label for="" class="count-show">Selected file: 0</label>
+            <input type="file" class="form-control" id="upload-img" multiple accept="image/png, image/jpeg,image/jpg,image/webp" />
+        </div>
+    </div>
+</div>
+
+CSS: 
+
+.img-thumbs {
+    border-radius: 0.25rem;
+    margin: 1.5rem 0;
+    padding: 10px;
+    min-height: 150px;
+    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+}
+
+.img-thumbs-hidden {
+    display: none;
+}
+
+.wrapper-thumb {
+    position: relative;
+    display: inline-block;
+    margin: 1rem 0;
+    justify-content: space-around;
+}
+
+.img-preview-thumb {
+    background: #fff;
+    border: 1px solid none;
+    border-radius: 0.25rem;
+    box-shadow: 0.125rem 0.125rem 0.0625rem rgba(0, 0, 0, 0.12);
+    margin-right: 1rem;
+    width: 150px;
+    height: 80px;
+    padding: 0.25rem;
+}
+
+.remove-btn {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: .7rem;
+    top: -5px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    color: white;
+    background: var(--danger);
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.remove-btn:hover {
+    box-shadow: 0px 0px 3px grey;
+    transition: all .3s ease-in-out;
+}
+
+Javascript:
+// Multi image upload
+    var removeId = 1;
+    $('body').on('change', '#upload-img', function(event){
+        $('#img-preview').removeClass('img-thumbs-hidden');
+        var imageInput = $(this).clone();
+        imageInput.attr('name', 'images[]');
+        imageInput.addClass('hide');
+        imageInput.removeAttr('upload-img');
+
+        for (let i = 0; i < event.target.files.length; i++) {
+            imageInput.attr('id', 'remove-id'+removeId);
+            $('#img-preview').append('<div class="wrapper-thumb remove-preview'+removeId+'"><span data-id="'+removeId+'" class="remove-btn">x</span><img class="img-preview-thumb" src="'+URL.createObjectURL(event.target.files[i])+'" alt=""></div>');
+            // $('#img-preview').append('<img src="'+URL.createObjectURL(event.target.files[i])+'" class="image-preview" alt="">');
+        }
+        $('#multi-images').append(imageInput);
+        var countVal = 'Selected file: '+$('.img-preview-thumb').length;
+        $('.count-show').html(countVal);
+        $('#upload-img').val('');
+        removeId++;
+    });
+
+    $('body').on('click', '.remove-btn', function(event){
+        var id = $(this).data('id');
+        $('.remove-preview'+id).remove();
+        $('#remove-id'+id).remove();
+        var countVal = 'Select files: '+$('.img-preview-thumb').length;
+        $('.count-show').html(countVal);
+        if ($('.img-preview-thumb').length < 1) {
+            $('#img-preview').addClass('img-thumbs-hidden');
+        }
+    });
