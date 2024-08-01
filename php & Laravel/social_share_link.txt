@@ -1,0 +1,353 @@
+# Create function
+public static function getSocialMedia($args)
+{
+    $url = $title = $desc = $image = $app_id = $redirect_url = $via = $hash_tags = $provider = $language = $user_id = $category = $phone_number = $email_address = $cc_email_address = $bcc_email_address = '';
+    if (isset($args['url'])) {
+        $url = urlencode($args['url']);
+    }
+    if (isset($args['title'])) {
+        $title = urlencode($args['title']);
+    }
+    if (isset($args['desc'])) {
+        $desc = urlencode($args['desc']);
+    }
+    if (isset($args['image'])) {
+        $image = urlencode($args['image']);
+    }
+    if (isset($args['appid'])) {
+        $app_id = urlencode($args['appid']);
+    }
+    if (isset($args['redirecturl'])) {
+        $redirect_url = urlencode($args['redirecturl']);
+    }
+    if (isset($args['via'])) {
+        $via = urlencode($args['via']);
+    }
+    if (isset($args['hashtags'])) {
+        $hash_tags = urlencode($args['hashtags']);
+    }
+    if (isset($args['provider'])) {
+        $provider = urlencode($args['provider']);
+    }
+    if (isset($args['language'])) {
+        $language = urlencode($args['language']);
+    }
+    if (isset($args['userid'])) {
+        $user_id = urlencode($args['userid']);
+    }
+    if (isset($args['category'])) {
+        $category = urlencode($args['category']);
+    }
+    if (isset($args['phonenumber'])) {
+        $phone_number = urlencode($args['phonenumber']);
+    }
+    if (isset($args['emailaddress'])) {
+        $email_address = urlencode($args['emailaddress']);
+    }
+    if (isset($args['ccemailaddress'])) {
+        $cc_email_address = urlencode($args['ccemailaddress']);
+    }
+    if (isset($args['bccemailaddress'])) {
+        $bcc_email_address = urlencode($args['bccemailaddress']);
+    }
+
+    $text = $title;
+    if ($desc) {
+        $text .= '%20%3A%20';    # This is just this, " : "
+        $text .= $desc;
+    }
+
+    // conditional check before arg appending
+    return [
+        'fontawsome' => [
+            'blogger' => 'fa-brands fa-blogger',
+            'diaspora' => 'fa-brands fa-diaspora',
+            'douban' => '',
+            'email' => 'fa-solid fa-envelope-circle-check',
+            'evernote' => 'fa-brands fa-evernote',
+            'getpocket' => 'fa-brands fa-get-pocket',
+            'facebook' => 'fa-brands fa-facebook',
+            'flipboard' => 'fa-brands fa-flipboard',
+            'gmail' => 'fa-solid fa-envelope',
+            'google_bookmarks' => 'fa-brands fa-google',
+            'instapaper' => '',
+            'line' => 'fa-brands fa-line',
+            'linkedin' => 'fa-brands fa-linkedin-in',
+            'livejournal' => 'fa-brands fa-x-twitter',
+            'hacker_news' => 'fa-brands fa-hacker-news',
+            'ok_ru' => 'fa-solid fa-thumbs-up',
+            'pinterest' => 'fa-brands fa-pinterest',
+            'qzone' => 'fa-solid fa-q',
+            'reddit' => 'fa-brands fa-reddit',
+            'renren' => 'fa-brands fa-renren',
+            'skype' => 'fa-brands fa-skype',
+            'sms' => 'fa-solid fa-comment-sms',
+            'telegram' => 'fa-brands fa-telegram',
+            'threema' => 'fa-solid fa-temperature-three-quarters',
+            'tumblr' => 'fa-brands fa-tumblr',
+            'twitter' => 'fa-brands fa-x-twitter',
+            'vk' => 'fa-brands fa-vk',
+            'weibo' => 'fa-brands fa-weibo',
+            'whatsapp' => 'fa-brands fa-whatsapp',
+            'xing' => 'fa-brands fa-xing',
+            'yahoo' => 'fa-brands fa-yahoo',
+        ],
+        'name' => [
+            'blogger' => 'https://www.blogger.com/blog-this.g?u=' . $url . '&n=' . $title . '&t=' . $desc,
+            'diaspora' => 'https://share.diasporafoundation.org/?title=' . $title . '&url=' . $url,
+            'douban' => 'http://www.douban.com/recommend/?url=' . $url . '&title=' . $text,
+            'email' => 'mailto:' . $email_address . '?subject=' . $title . '&body=' . $desc,
+            'evernote' => 'https://www.evernote.com/clip.action?url=' . $url . '&title=' . $text,
+            'getpocket' => 'https://getpocket.com/edit?url=' . $url,
+            'facebook' => 'http://www.facebook.com/sharer.php?u=' . $url,
+            'flipboard' => 'https://share.flipboard.com/bookmarklet/popout?v=2&title=' . $text . '&url=' . $url,
+            'gmail' => 'https://mail.google.com/mail/?view=cm&to=' . $email_address . '&su=' . $title . '&body=' . $url . '&bcc=' . $bcc_email_address . '&cc=' . $cc_email_address,
+            'google_bookmarks' => 'https://www.google.com/bookmarks/mark?op=edit&bkmk=' . $url . '&title=' . $title . '&annotation=' . $text . '&labels=' . $hash_tags . '',
+            'instapaper' => 'http://www.instapaper.com/edit?url=' . $url . '&title=' . $title . '&description=' . $desc,
+            'line' => 'https://lineit.line/share/ui?url=' . $url . '&text=' . $text,
+            'linkedin' => 'https://www.linkedin.com/sharing/share-offsite/?url=' . $url,
+            'livejournal' => 'http://www.livejournal.com/update.bml?subject=' . $text . '&event=' . $url,
+            'hacker_news' => 'https://news.ycombinator.com/submitlink?u=' . $url . '&t=' . $title,
+            'ok_ru' => 'https://connect.ok_ru/dk?st.cmd=WidgetSharePreview&st.shareUrl=' . $url,
+            'pinterest' => 'http://pinterest.com/pin/create/button/?url=' . $url,
+            'qzone' => 'http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=' . $url,
+            'reddit' => 'https://reddit.com/submit?url=' . $url . '&title=' . $title,
+            'renren' => 'http://widget.renren.com/dialog/share?resourceUrl=' . $url . '&srcUrl=' . $url . '&title=' . $text . '&description=' . $desc,
+            'skype' => 'https://web.skype.com/share?url=' . $url . '&text=' . $text,
+            'sms' => 'sms:' . $phone_number . '?body=' . str_replace('+', ' ', $text),
+            'telegram' => 'https://t.me/share/url?url=' . $url . '&text=' . $text . '&to=' . $phone_number,
+            'threema' => 'threema://compose?text=' . $text . '&id=' . $user_id,
+            'tumblr' => 'https://www.tumblr.com/widgets/share/tool?canonicalUrl=' . $url . '&title=' . $title . '&caption=' . $desc . '&tags=' . $hash_tags,
+            'twitter' => 'https://twitter.com/intent/tweet?url=' . $url . '&text=' . $text . '&via=' . $via . '&hashtags=' . $hash_tags,
+            'vk' => 'http://vk.com/share.php?url=' . $url . '&title=' . $title . '&comment=' . $desc,
+            'weibo' => 'http://service.weibo.com/share/share.php?url=' . $url . '&appkey=&title=' . $title . '&pic=&ralateUid=',
+            'whatsapp' => 'https://api.whatsapp.com/send?text=' . $text . '%20' . $url,
+            'xing' => 'https://www.xing.com/spi/shares/new?url=' . $url,
+            'yahoo' => 'http://compose.mail.yahoo.com/?to=' . $email_address . '&subject=' . $title . '&body=' . $text,
+        ]
+    ];
+}
+
+# get the social media links
+$social_medias = Helper::getSocialMedia([
+    'url' => url('listing-details/'.$listing->slug),
+    'title' => $listing->title,
+    'desc' => $listing->short_description,
+]);
+
+# CSS Code
+.social-share li {
+    display: inline-block;
+}
+.social-share li a{
+    padding: 5px 10px;
+    margin: 5px 0px;
+    border-radius: 1px;
+}
+.social-share .facebook a{
+    color: #fff;
+    background: #3E68BD;
+}
+.social-share .facebook a:hover{
+    background: #385DAC;
+}
+.social-share .twitter a{
+    color: #fff;
+    background: #23ABFF;
+}
+.social-share .twitter a:hover{
+    background: #2099E9;
+}
+.social-share .linkedin a{
+    color: #fff;
+    background: #15ACE5;
+}
+.social-share .linkedin a:hover{
+    background: #0F9ACE;
+}
+.social-share .pinterest a{
+    color: #fff;
+    background: #EB3148;
+}
+.social-share .pinterest a:hover{
+    background: #D2293E;
+}
+.social-share .whatsapp a{
+    color: #fff;
+    background: #11D359;
+}
+.social-share .whatsapp a:hover{
+    background: #11BD4E;
+}
+.social-share .line a{
+    color: #fff;
+    background: #00BF00;
+}
+.social-share .reddit a{
+    color: #fff;
+    background: #FF5D1F;
+}
+.social-share .reddit a:hover{
+    background: #E55121;
+}
+.social-share .skype a{
+    color: #fff;
+    background: #06BCFE;
+}
+.social-share .skype a:hover{
+    background: #06A9E5;
+}
+.social-share .tumblr a{
+    color: #fff;
+    background: #35455C;
+}
+.social-share .tumblr a:hover{
+    background: #2D3C52;
+}
+.social-share .diaspora a{
+    color: #fff;
+    background: #000000;
+}
+.social-share .diaspora a:hover{
+    background: #020202;
+}
+.social-share .douban a{
+    color: #fff;
+    background: #007900;
+}
+.social-share .douban a:hover{
+    background: #006100;
+}
+.social-share .email a{
+    color: #fff;
+    background: #F4CD0D;
+}
+.social-share .email a:hover{
+    background: #DBB70B;
+}
+.social-share .evernote a{
+    color: #fff;
+    background: #2DBE61;
+}
+.social-share .evernote a:hover{
+    background: #29AD55;
+}
+.social-share .getpocket a{
+    color: #fff;
+    background: #CF394D;
+}
+.social-share .getpocket a:hover{
+    background: #EB3750;
+}
+.social-share .flipboard a{
+    color: #fff;
+    background: #F53D3D;
+}
+.social-share .flipboard a:hover{
+    background: #E03133;
+}
+.social-share .gmail a{
+    color: #fff;
+    background: #EA4235;
+}
+.social-share .gmail a:hover{
+    background: #DD3026;
+}
+.social-share .google_bookmarks a{
+    color: #fff;
+    background: #EA4235;
+}
+.social-share .google_bookmarks a:hover{
+    background: #DD3026;
+}
+.social-share .instapaper a{
+    color: #fff;
+    background: #000000;
+}
+.social-share .instapaper a:hover{
+    background: #020202;
+}
+.social-share .livejournal a{
+    color: #fff;
+    background: #000000;
+}
+.social-share .livejournal a:hover{
+    background: #020202;
+}
+.social-share .hacker_news a{
+    color: #fff;
+    background: #FE5802;
+}
+.social-share .hacker_news a:hover{
+    background: #E55003;
+}
+.social-share .ok_ru a{
+    color: #fff;
+    background: #FE5802;
+}
+.social-share .ok_ru a:hover{
+    background: #E55003;
+}
+.social-share .qzone a{
+    color: #fff;
+    background: #F6C600;
+}
+.social-share .qzone a:hover{
+    background: #DDB204;
+}
+.social-share .renren a{
+    color: #fff;
+    background: #007ECB;
+}
+.social-share .renren a:hover{
+    background: #0069B0;
+}
+.social-share .sms a{
+    color: #fff;
+    background: #007ECB;
+}
+.social-share .sms a:hover{
+    background: #0069B0;
+}
+.social-share .telegram a{
+    color: #fff;
+    background: #2DA5E1;
+}
+.social-share .telegram a:hover{
+    background: #2997CC;
+}
+.social-share .threema a{
+    color: #fff;
+    background: #015DE2;
+}
+.social-share .threema a:hover{
+    background: #0357C4;
+}
+.social-share .tumblr a{
+    color: #fff;
+    background: #35455C;
+}
+.social-share .vk a:hover{
+    background: #3573BE;
+}
+.social-share .vk a:hover{
+    background: #2F67A7;
+}
+.social-share .weibo a:hover{
+    background: #FF3F3E;
+}
+.social-share .weibo a:hover{
+    background: #E53638;
+}
+.social-share .xing a:hover{
+    background: #1FA5A6;
+}
+.social-share .xing a:hover{
+    background: #1A9595;
+}
+.social-share .yahoo a:hover{
+    background: #6C2B8B;
+}
+.social-share .yahoo a:hover{
+    background: #5C2B7C;
+}
