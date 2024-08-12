@@ -1,0 +1,60 @@
+HTML:
+    <a id="scroll_top"></a>
+
+CSS:
+    #scroll_top {
+        display: inline-block;
+        background-color: #F6552C;
+        width: 40px;
+        height: 40px;
+        text-align: center;
+        border-radius: 50%;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        transition: background-color .3s,
+            opacity .5s, visibility .5s;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 1000;
+    }
+
+    #scroll_top::after {
+        content: "\f077";
+        font-family: FontAwesome;
+        font-weight: normal;
+        font-style: normal;
+        font-size: 14px;
+        line-height: 42px;
+        color: #fff;
+    }
+
+    #scroll_top:hover {
+        cursor: pointer;
+        background-color: #333;
+    }
+
+    #scroll_top:active {
+        background-color: #555;
+    }
+
+    #scroll_top.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+JS:
+    var scroll_top = $('#scroll_top');
+    $(window).scroll(function() {
+        if ($(window).scrollTop() > 300) {
+            scroll_top.addClass('show');
+        } else {
+            scroll_top.removeClass('show');
+        }
+    });
+    scroll_top.on('click', function(e) {
+        e.preventDefault();
+        $('html, body').animate({
+            scrollTop: 0
+        }, '300');
+    });
