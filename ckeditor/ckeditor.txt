@@ -1,0 +1,43 @@
+# Call ckeditor
+    CKEDITOR.replace( 'requirements');
+
+# Ckeditor with ckfinder
+    var editor = CKEDITOR.replace('requirements');
+    CKFinder.setupCKEditor(editor);
+
+# Ckeditor call by class name
+    $('.ckeditor').each(function() {
+        CKEDITOR.replace(this.id);
+    });
+    or 
+    $('.description').each(function() {
+        CKEDITOR.replace(this.id, {
+            height: 200,
+            "removePlugins": "exportpdf"
+        });
+    });
+
+# Use config setting inside this code block.(ckeditor/config.js)
+    CKEDITOR.editorConfig = function( config ) {
+        config.width = 100;  // Example for wifth
+    }
+
+# Ckeditor remove upgrading latest version message
+    config.versionCheck = false;
+
+# Ckeditor width
+    config.width = 100; 
+
+# Ckeditor height
+    config.height = 100; 
+
+# FIX [CKEDITOR] Error code: editor-element-conflict. (use before call the Ckeditor)
+    for (key in CKEDITOR.instances) { CKEDITOR.instances[key].destroy(true); }
+    
+# FIX Ckeditor Ajax form submit html tags sending errors 
+    $('#job-post-form').submit(function(e) {
+        for ( instance in CKEDITOR.instances ) {
+            CKEDITOR.instances[instance].updateElement();
+        }
+    })
+    
