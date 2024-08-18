@@ -1,0 +1,164 @@
+Institute Module
+    institutes: id_no,name,short_name,code,web_username,email,phone,address,logo,status,guard,author_id
+User Module
+    Roles
+        role_permissions:role_id,route_name,status,guard,author_id
+        roles: institute_id,name,status,guard,author_id
+
+        Role list
+        Role create
+        Role edit
+        Role delete
+    Users
+        users: institute_id,name,username,email,phone,country_id,photo,status,guard,author_id
+
+        User list
+        User create 
+
+HRM Module
+    employees: institute_id,id_no,name,email,phone,country_id,photo,department_id,designation_id,monthly_salary,gender,education,training,join_date,birth_date,birth_regi_no,
+                mpo_date,index_no,last_institute,last_institute_address,cause_of_leave,blood_group_id,religion_id,father_name,father_profession,mother_name,mother_profession,
+                spouse_name,spouse_profession,spouse_email,spouse_phone,childrens,present_address,permanent_address,retired_remarks,retired_at,email_verified_at,remember_token,status,guard,author_id
+
+    Employee Department
+    Employee Designations
+    Employees
+Payroll Module
+    Employee Advance Payments
+    Employee Loans
+    Employee Salaries
+Student Module
+    Class
+        student_classes: institute_id,name,status,guard,author_id
+    Shift
+        shifts: institute_id,name,status,guard,author_id
+    Section
+        sections: institute_id,name,status,guard,author_id
+    Group
+        groups: institute_id,name,status,guard,author_id
+    Academic year
+        academic_years: institute_id,name,status,guard,author_id
+    Guardian:
+        guardians: institute_id,name,email,phone,father_name,father_profession,father_monthly_income,father_education,father_national_ID,father_photo,
+                mother_name,mother_profession,mother_monthly_income,mother_education,mother_national_ID,mother_photo,text_password,password,status,guard,author_id
+    Students
+        student_academics: student_id,student_class_id,shift_id,section_id,group_id,student_session_id,remarks,status 
+        students: institute_id,id_no,name,email,phone,country_id,photo,gender,regular_status,last_institute,cause_of_leave,birth_date,birth_regi_no,
+                guardian_id,blood_group_id,religion_id,present_address,permanent_address,email_verified_at,remember_token,status,guard,author_id
+    Alumni students
+
+Online Admission Module
+    Online students
+Teacher Module
+    Teachers
+        teachers: institute_id,id_no,name,email,phone,country_id,photo,department_id,designation_id,monthly_salary,gender,education,training,join_date,birth_date,birth_regi_no,
+                mpo_date,index_no,last_institute,last_institute_address,cause_of_leave,blood_group_id,religion_id,father_name,father_profession,mother_name,mother_profession,
+                spouse_name,spouse_profession,spouse_email,spouse_phone,childrens,present_address,permanent_address,retired_remarks,retired_at,email_verified_at,remember_token,status,guard,author_id
+    Techer subjects
+        teacher_subjects: teacher_id,subject_id,status,guard,author_id
+    Teacher mark register
+
+
+Committee Module
+    Committes
+        committiee_actions: committee_id,academic_year_id,status,guard,author_id
+        committees: institute_id,id_no,name,email,phone,country_id,photo,department_id,designation_id,monthly_salary,gender,education,birth_date,birth_regi_no,
+                blood_group_id,religion_id,father_name,father_profession,mother_name,mother_profession,spouse_name,spouse_profession,spouse_email,spouse_phone,childrens,present_address,permanent_address,email_verified_at,remember_token,status,guard,author_id
+    Committee Meetings
+            committee_meetings: institute_id,topics,start_time,end_time,date,description,status,guard,author_id
+            committee_meeting_comments: committee_meeting_id,comment,status,guard,author_id
+    Former committies
+Attendance Moudle
+    Student attendance
+        student_attendances: institute_id,student_id,date,in_time,out_time,academic_year_id,status,guard,author_id
+    Teacher attendance 
+        teacher_attendances: institute_id,teacher_id,date,in_time,out_time,academic_year_id,status,guard,author_id
+    Employee attendance
+        employee_attendances: institute_id,employee_id,date,in_time,out_time,academic_year_id,status,guard,author_id
+Routine Module
+    Class Day
+        class_days: institute_id,name,short_name,status,guard,author_id
+    Class Time 
+        class_times: institute_id,name,time,status,guard,author_id
+    Class Room 
+        class_rooms: institute_id,name,code,status,guard,author_id
+    Class routine 
+        class_routines: institute_id,student_class_id,shift_id,group_id,academic_year_id,status,guard,author_id
+        class_routine_sections: class_routine_id,section_id,status,guard,author_id
+        class_routine_details: class_routine_id,class_day_id,class_room_id,class_time_id,teacher_id
+    Exam Routine 
+        exam_routines: exam_id,subject_id,date,time,status,guard,author_id
+Result Module
+    Subjects 
+        subjects: institute_id,name,short_name,code,status,guard,author_id
+    Exam types
+        exam_types: institute_id,name,status,guard,author_id
+    Exams
+        exams: institute_id,exam_type_id,student_class_id,shift_id,section_id,group_id,academic_year_id,status,guard,author_id
+        exam_details: exam_id,subject_id,theory,theory_pass,objective,objective_pass,practical,practical_pass,ca,ca_pass,total,total_pass,pass_required,optional_status
+    Marks 
+        exam_marks: exam_id,student_id,subject_id,theory,objective,practical,ca,total,pass_status,status,guard,author_id
+    Mark sheet 
+
+    Tabulation sheet 
+Library Module
+    Book category
+        book_categories: institute_id,name,description,quantity,status,guard,author_id
+    Books
+        books: institute_id,name,book_category_id,description,price,writter,editor,publisher,contact,release_at,status,guard,author_id
+    Book purchase:
+        book_purchase: institute_id,order_no,suppliyer_id,price,discount,total,status,guard,author_id
+        book_purchase_details: book_purchase_id,book_id,quantity,price,discount,total
+    Members
+        library_members: institute_id,all_type_id,status,guard,author_id
+    Issue books
+        issue_books: institute_id,member_id,book_id,quantity,issue_date,retur_date,return_at,status,guard,author_id
+    Return books
+Transport Module
+    Vahicle types
+        vehicle_types: institute_id,name,description,status,guard,author_id
+    Vehicle
+        vehicles: institute_id,vehicle_type_id,name,vehicle_no,description,status,guard,author_id
+    Vehicle stopage
+        vehicle_stopages: institute_id,name,description,status,guard,author_id
+    Stopage fees
+        vehicle_stopage_fees: institute_id,vehicle_id,vehicle_stopage_id1,vehicle_stopage_id2,description,status,guard,author_id
+    Members
+        transport_members: institute_id,all_type_id,status,guard,author_id
+Inventory Module
+    Product categories
+        product_categories: institute_id,name,status,guard,author_id
+    Product
+        products: institute_id,name,product_category_id,buy_price,sale_price,quantity,status,guard,author_id
+    Suppliers
+        suppliers: institute_id,name,email,phone,country_id,paid,due,total,status,guard,author_id
+    Purchases
+    Customers
+    Sales
+Donation Module
+    Donors
+    Donation funds
+    Donation monthly amount setup 
+    Donation monthly amounts
+
+Account Module
+    Payment methods
+    Account heads
+        Purchase
+        Sale 
+        Student fees 
+        Payroll 
+    Accounts
+    Student fees setup 
+    Student invoice
+    Incomes
+    Expenses
+    Balance statement
+Report Module
+    All students 
+
+Website Module
+    Header
+    Menus
+    Slider
+
