@@ -107,7 +107,7 @@ Library Module
     Books
         books: institute_id,name,book_category_id,description,price,writter,editor,publisher,contact,release_at,status,guard,author_id
     Book purchase:
-        book_purchase: institute_id,order_no,suppliyer_id,price,discount,total,status,guard,author_id
+        book_purchase: institute_id,order_no,supplier_id,price,discount,total,status,guard,author_id
         book_purchase_details: book_purchase_id,book_id,quantity,price,discount,total
     Members
         library_members: institute_id,all_type_id,status,guard,author_id
@@ -122,7 +122,7 @@ Transport Module
     Vehicle stopage
         vehicle_stopages: institute_id,name,description,status,guard,author_id
     Stopage fees
-        vehicle_stopage_fees: institute_id,vehicle_id,vehicle_stopage_id1,vehicle_stopage_id2,description,status,guard,author_id
+        vehicle_stopage_fees: institute_id,vehicle_id,vehicle_stopage_id1,vehicle_stopage_id2,price,status,guard,author_id
     Members
         transport_members: institute_id,all_type_id,status,guard,author_id
 Inventory Module
@@ -131,24 +131,58 @@ Inventory Module
     Product
         products: institute_id,name,product_category_id,buy_price,sale_price,quantity,status,guard,author_id
     Suppliers
-        suppliers: institute_id,name,email,phone,country_id,paid,due,total,status,guard,author_id
+        suppliers: institute_id,name,email,phone,country_id,total,paid,due,status,guard,author_id
     Purchases
+        purchases: institute_id,order_no,supplier_id,price,discount,total,status,guard,author_id
+        purchase_details: purchase_id,product_id,quantity,price,discount,total
     Customers
+        institute_id,name,email,phone,country_id,total,paid,due,status,guard,author_id
     Sales
+        sales: institute_id,order_no,customer_id,price,discount,total,status,guard,author_id
+        sale_details: sale_id,product_id,quantity,price,discount,total
 Donation Module
     Donors
+        donors: institute_id,name,email,phone,country_id,total,paid,due,status,guard,author_id
     Donation funds
-    Donation monthly amount setup 
+        donation_funds: institute_id,name,description,status,guard,author_id
+    Donor Invoice
+        donor_invoices: institute_id,donor_id,amount,date,remarks,status,guard,author_id
+        donor_invoice_details: donor_invoice_id,donation_fund_id,amount,status
     Donation monthly amounts
 
 Account Module
     Payment methods
-    Account heads
-        Purchase
-        Sale 
-        Student fees 
-        Payroll 
-    Accounts
+        payment_methods: institute_id,name,account_no,description,status,guard,author_id
+    Accounts heads
+        Asset
+            Cash=500
+            Supplies
+            Accounts Receivable=50
+            Prepaid Rent
+            Inventory
+            Office Equipment
+            Building
+            Land
+            Accounts Payable
+        Liability
+            Wages Payable
+            Sales Tax Payable
+            Unearned Revenue
+            Income Tax Payable
+            Social Security Tax Payable
+            Mortgage Payable
+            Notes Payable
+        Income
+            Student fees
+            Sale
+            Donation
+
+        Expense
+            Supplies Expense
+            Wages Expense
+            Utilities Expense
+            Rent Expense
+
     Student fees setup 
     Student invoice
     Incomes
@@ -161,4 +195,3 @@ Website Module
     Header
     Menus
     Slider
-
