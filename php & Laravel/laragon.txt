@@ -1,0 +1,18 @@
+# Import sql file:
+Copy & paste the sql file same directory where command run.
+mysql -hlocalhost -uroot -p cemsonline_org < cemsonline_org.sql
+
+# Export sql file:
+Copy & paste the sql file same directory where command run.
+mysql -hlocalhost -uroot -p cemsonline_org > cemsonline_org.sql
+
+# Add php version in laragon
+Download php version for windows.
+Copy & paste laragon\bin\php directory & unzip the php.
+
+# Change php version 
+Open laragon app & Menu->php->select php version 
+
+
+
+
