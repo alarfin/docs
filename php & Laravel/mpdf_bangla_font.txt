@@ -1,0 +1,107 @@
+Step one:
+    composer require mpdf/mpdf
+
+Step two:
+    Copy & paste all bangla fonts inside public/fonts directory.
+
+Step three: 
+    Create helper function. Create a file App/Custom/PdfGenrate.php
+
+    <?php
+    namespace App\Custom;
+
+    use Illuminate\Support\Facades\View;
+    use Mpdf\Config\ConfigVariables;
+    use Mpdf\Config\FontVariables;
+    use Mpdf\Mpdf;
+
+    class PdfGenerate {
+        public static function loadView($page, $data=null, $custom_settings=null){
+            $html = View::make($page,$data);
+            $pdf = self::pdfDeafaultSetting($custom_settings);
+            $pdf->WriteHTML($html);
+            $pdf->Output();
+        }
+
+        public static function download($page, $data=null, $custom_settings=null){
+            $file_name = 'download.pdf';
+            if (isset($custom_settings['file_name'])) {
+                $file_name = $custom_settings['file_name'];
+            }
+            $html = View::make($page,$data);
+            $pdf = self::pdfDeafaultSetting($custom_settings);
+            $pdf->WriteHTML($html);
+            $pdf->OutputHttpDownload($file_name);
+        }
+
+        public static function pdfDeafaultSetting($custom_settings=null){
+            $defaultConfig = (new ConfigVariables())->getDefaults();
+            $defaultFontConfig = (new FontVariables())->getDefaults();
+            $fontData = $defaultFontConfig['fontdata'];
+            $fontDirs = $defaultConfig['fontDir'];
+            $default_font = '';
+            if (isset($custom_settings['default_font'])) {
+                $default_font = $custom_settings['default_font'];
+            }
+            // dd($customDir.'/Nikosh.ttf');
+            $mpdf = new Mpdf([
+                'fontDir' => array_merge($fontDirs, [
+                    './fonts',
+                ]),
+                'fontdata' => $fontData + [ // lowercase letters only in font key
+                    'nikosh' => [
+                        'R' => 'Nikosh.ttf',
+                        'useOTL' => 0xFF,
+                        'useKashida' => 75,
+                    ],
+                    'kalpurush' => [
+                        'R' => 'kalpurush.ttf',
+                        'useOTL' => 0xFF,
+                        'useKashida' => 75,
+                    ],
+                    'solaimanlipi' => [
+                        'R' => 'SolaimanLipi.ttf',
+                        'useOTL' => 0xFF,
+                        'useKashida' => 75,
+                    ]
+                ],
+                'default_font' => $default_font
+            ]);
+            $mpdf->SetProtection(array('print'));
+            $mpdf->SetTitle("PDF Generate");
+            $mpdf->SetAuthor("Md. Al Arfin Rokon");
+            $mpdf->SetDisplayMode('fullpage');
+
+            //Custom settings 
+            if (isset($custom_settings['SetWatermarkText'])) {
+                $mpdf->SetWatermarkText($custom_settings['SetWatermarkText']);
+                $mpdf->showWatermarkText = true;
+            }
+            if (isset($custom_settings['watermark_font'])) {
+                $mpdf->watermark_font = $custom_settings['watermark_font'];
+            }
+            if (isset($custom_settings['watermarkTextAlpha'])) {
+                $mpdf->watermarkTextAlpha = $custom_settings['watermarkTextAlpha'];
+            }
+            return $mpdf;
+        }
+    }
+    ?>    
+
+Step four:
+    Call pdf generator:
+    $data =[
+        'id' => 1,
+        'name' => 'Md. Al Arfin',
+        'age' => 31,
+        'designation' => 'Sr. Software Developer',
+    ];
+    // View PDF
+    return PdfGenerate::loadView('pdf',$data, [
+        'default_font' => 'nikosh'
+    ]);
+    // Download pdf file 
+    return PdfGenerate::download('pdf',$data, [
+        'default_font' => 'nikosh',
+        'file_name' => 'personal',
+    ]);
