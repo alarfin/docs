@@ -1,0 +1,292 @@
+# Make database language table 
+    php artisan make:model Language 
+    Open migration file 7 update by this code.
+        Schema::create('languages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('country_id')->nullable();
+            $table->string('code');
+            $table->string('name');
+            $table->string('icon');
+            $table->tinyInteger('default')->default(0);
+            $table->tinyInteger('status')->default(1);
+            $table->unsignedBigInteger('author_id')->nullable();
+            $table->timestamps();
+        });
+
+# install localization 
+    php artisan lang:publish
+
+# Create middleware for localization 
+    php artisan make:middleware LocaleMiddleware
+
+# Open app\Http\Middleware\LocaleMiddleware.php & add this code
+    public function handle(Request $request, Closure $next): Response
+    {
+        $default_code = Language::where('default', 1)->first()->code??'en';
+        $codes = Language::pluck('code')->toArray();
+        $code = session()->get('locale')??$default_code;
+        if (in_array($code, $codes)) {
+            App::setLocale($code);
+        }
+
+        return $next($request);
+    }
+# Make controller 
+    php artisan make:controller LanguageController
+
+# Create route
+    Route::get('local/{lang}', [LanguageController::class, 'setLocal'])->name('set.locale');
+    Route::group(['prefix' => 'language', 'as' => 'language.'], function () {
+        Route::get('/list', [LanguageController::class, 'list'])->name('list');
+        Route::get('/datatable', [LanguageController::class, 'datatable'])->name('datatable');
+        Route::get('/create', [LanguageController::class, 'create'])->name('create');
+        Route::post('/create', [LanguageController::class, 'store'])->name('store');
+        Route::get('/edit/{language}', [LanguageController::class, 'edit'])->name('edit');
+        Route::post('/update/{language}', [LanguageController::class, 'update'])->name('update');
+        Route::get('/text-edit', [LanguageController::class, 'langTextEdit'])->name('text.edit');
+        Route::post('/text-update', [LanguageController::class, 'langTextUpdate'])->name('text.update');
+        Route::get('/delete/{language}', [LanguageController::class, 'delete'])->name('delete');
+    });
+
+# Open app\Http\Controllers\LanguageController.php & add this code
+    public function setLocal($locale)
+    {
+        $codes = Language::pluck('code')->toArray();
+        $code = $locale;
+        if (in_array($code, $codes)) {
+            session()->put('locale', $locale);
+            App::setLocale($locale);
+        }
+        return redirect()->back();
+    }
+
+    public function list(Request $request){
+        $languages = Language::get();
+        return view('backend.language.list', compact('languages'));
+    }
+
+    public function datatable(Request $request)
+    {
+        $query = Language::query();
+        return DataTables::eloquent($query)
+            ->addIndexColumn()
+            ->addColumn('country', function (Language $language) {
+                return $language->country->name??'';
+            })
+            ->editColumn('default', function (Language $language) {
+                return $language->default==1? '<span class="text-success">Default</span>': '';
+            })
+            ->addColumn('status', function (Language $language) {
+                return $language->status==1? __('general.active'):__('general.inactive');
+            })
+            ->addColumn('action', function (Language $language) {
+                $btn = '';
+                if (Helper::routePermission('language.edit')) {
+                    $btn .= '<a href="' . route("language.edit", ["language" => $language->id]) . '" class="btn btn-sm btn-primary"> '.__('general.edit').' </a>';
+                }
+                if (Helper::routePermission('language.text.edit')) {
+                    $btn .= '<a href="' . route("language.text.edit", ["language_code" => $language->code]) . '" class="btn btn-sm btn-info"> '.__('general.text_edit').' </a>';
+                }
+                if (Helper::routePermission('language.delete')) {
+                    $btn .= '<a href="' . route("language.delete", ["language" => $language->id]) . '" onclick="return confirm(\'Do you want to delete\')" class="btn btn-sm btn-danger"> '.__('general.delete').' </a>';
+                }
+                return $btn;
+            })
+            ->rawColumns(['action', 'default','status'])
+            ->toJson();
+    }
+
+    public function create(){
+        $countries = Country::get();
+        return view('backend.language.create', compact('countries'));
+    }
+
+    public function store(Request $request){
+        $country = Country::find($request->country_id);
+        $data = $request->except('default');
+        $data['default'] = $request->default??0;
+        $data['icon'] = $country->domain;
+        $language = Language::create($data);
+
+        // Update default language
+        if ($language->default == 1) {
+            $languages = Language::whereNotIn('id', [$language->id])->get();
+            foreach($languages as $item){
+                $item->update(['default' => 0]);
+            }
+        }
+
+        // Copy default language directory
+        $source = "lang/en";
+        $destination = "lang/".$language->code;
+        if (!file_exists(base_path($destination))) {
+            mkdir(base_path($destination), 0755, true);
+        }
+        File::copyDirectory(base_path($source), base_path($destination));
+
+        return redirect()->route('language.list')->with('success', __('general.data_stored_successfully'));
+    }
+
+    public function edit(Request $request, Language $language){
+        $countries = Country::get();
+        return view('backend.language.edit', compact('language','countries'));
+    }
+
+    public function update(Request $request, Language $language){
+        $country = Country::find($request->country_id);
+        $data = $request->except('default');
+        $data['icon'] = $country->domain;
+        $data['default'] = $request->default??0;
+        $language->update($data);
+        
+        // Update default language
+        if ($language->default == 1) {
+            $languages = Language::whereNotIn('id', [$language->id])->get();
+            foreach($languages as $item){
+                $item->update(['default' => 0]);
+            }
+        }
+
+        return redirect()->route('language.list')->with('success', __('general.data_updated_successfully'));
+    }
+
+    public function langTextEdit(Request $request){
+        $language_code = $request->language_code??'en';
+        $general = 'lang/'.$language_code.'/general.php';
+        $general = include(base_path($general));
+        $auth = 'lang/'.$language_code.'/auth.php';
+        $auth = include(base_path($auth));
+        $pagination = 'lang/'.$language_code.'/pagination.php';
+        $pagination = include(base_path($pagination));
+        $passwords = 'lang/'.$language_code.'/passwords.php';
+        $passwords = include(base_path($passwords));
+        $languages = Language::get();
+        // dd(app()->getLocale());
+        return view('backend.language.translate', compact('language_code','languages','general','auth'));
+    }
+
+# Blade page looping example:
+    @foreach ($general as $key => $value)
+        <div class="col-xl-3 col-lg-4 col-md-6">
+            <div class="mb-1">
+                <label class="form-label" for="{{ $key }}">
+                    {{ ucfirst(str_replace('_', ' ', $key)) }} <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="{{ $key }}" value="{{ old($key, $value) }}" class="form-control"  name="general[{{ $key }}]" required />
+            </div>
+        </div>
+    @endforeach
+
+    public function langTextUpdate(Request $request){
+        $language_code = $request->language_code??'en';
+        // General file update
+        if (count($request->general) > 0) {
+            $general_path = 'lang/'.$language_code.'/general.php';
+            $myfile = fopen(base_path($general_path), "w") or die("Unable to open file!");
+            $txt = "<?php\n";
+            fwrite($myfile, $txt);
+            $txt = "return [\n";
+            fwrite($myfile, $txt);
+            foreach($request->general??[] as $key => $general){
+                $txt = '"'.$key.'"'." => ".'"'.$general.'",';
+                fwrite($myfile, $txt);
+
+                $txt = "\n";
+                fwrite($myfile, $txt);
+            }
+            $txt = "];\n";
+            fwrite($myfile, $txt);
+            fclose($myfile);
+        }
+        
+        // Auth file update
+        if (count($request->auth) > 0) {
+            $auth_path = 'lang/'.$language_code.'/auth.php';
+            $authFile = fopen(base_path($auth_path), "w") or die("Unable to open file!");
+            $txt = "<?php\n";
+            fwrite($authFile, $txt);
+            $txt = "return [\n";
+            fwrite($authFile, $txt);
+            foreach($request->auth??[] as $key => $auth){
+                $txt = '"'.$key.'"'." => ".'"'.$auth.'",';
+                fwrite($authFile, $txt);
+
+                $txt = "\n";
+                fwrite($authFile, $txt);
+            }
+            $txt = "];\n";
+            fwrite($authFile, $txt);
+            fclose($authFile);
+        }
+        
+        // Pagination file update
+        if (count($request->pagination) > 0) {
+            $pagination_path = 'lang/'.$language_code.'/pagination.php';
+            $paginationFile = fopen(base_path($pagination_path), "w") or die("Unable to open file!");
+            $txt = "<?php\n";
+            fwrite($paginationFile, $txt);
+            $txt = "return [\n";
+            fwrite($paginationFile, $txt);
+            foreach($request->pagination??[] as $key => $pagination){
+                $txt = '"'.$key.'"'." => ".'"'.$pagination.'",';
+                fwrite($paginationFile, $txt);
+
+                $txt = "\n";
+                fwrite($paginationFile, $txt);
+            }
+            $txt = "];\n";
+            fwrite($paginationFile, $txt);
+            fclose($paginationFile);
+        }
+        
+        // Pagination file update
+        if (count($request->pagination) > 0) {
+            $pagination_path = 'lang/'.$language_code.'/pagination.php';
+            $paginationFile = fopen(base_path($pagination_path), "w") or die("Unable to open file!");
+            $txt = "<?php\n";
+            fwrite($paginationFile, $txt);
+            $txt = "return [\n";
+            fwrite($paginationFile, $txt);
+            foreach($request->pagination??[] as $key => $pagination){
+                $txt = '"'.$key.'"'." => ".'"'.$pagination.'",';
+                fwrite($paginationFile, $txt);
+
+                $txt = "\n";
+                fwrite($paginationFile, $txt);
+            }
+            $txt = "];\n";
+            fwrite($paginationFile, $txt);
+            fclose($paginationFile);
+        }
+        
+        // Passwords file update
+        if (count($request->passwords) > 0) {
+            $passwords_path = 'lang/'.$language_code.'/passwords.php';
+            $passwordsFile = fopen(base_path($passwords_path), "w") or die("Unable to open file!");
+            $txt = "<?php\n";
+            fwrite($passwordsFile, $txt);
+            $txt = "return [\n";
+            fwrite($passwordsFile, $txt);
+            foreach($request->passwords??[] as $key => $passwords){
+                $txt = '"'.$key.'"'." => ".'"'.$passwords.'",';
+                fwrite($passwordsFile, $txt);
+
+                $txt = "\n";
+                fwrite($passwordsFile, $txt);
+            }
+            $txt = "];\n";
+            fwrite($passwordsFile, $txt);
+            fclose($passwordsFile);
+        }
+        
+        return redirect()->back()->with('success', __('general.data_updated_successfully'));
+    }
+
+    public function delete(Request $request, Language $language){
+        $directory = "lang/".$language->code;
+        File::deleteDirectory(base_path($directory));
+        $language->delete();
+        return redirect()->route('language.list')->with('success', __('general.data_deleted_successfully'));
+    }
+
+
