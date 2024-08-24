@@ -1,0 +1,32 @@
+
+Create repository.
+Open command cmd from the project folder location.
+git init
+git add .
+git commit -m "First commit"
+git branch -M branch main
+git remote add origin https://github.com/alarfin/business-directory.git
+git push -u origin main
+If not working this process use personal access token.
+
+# git upload project by personal access token:
+1. Create personal access token from
+2. user profile->settings->Developer Settings->personal access token->token classic
+3. Write commad git remote remove origin & enter.
+4. Write command: git remote add origin https://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@github.com/alarfin/business-directory.git & press enter.
+5. git push --set-upstream origin main
+6. git push
+
+Git command:
+Git setup: 
+git config --global user.name "Al Arfin"
+git config --global user.email "alarfin@gmail.com"
+
+Git clone project: git clone project-url
+Git branch create: git branch develpement
+Git change working one branch to another: git checkout development
+Git fetch branch data: git fetch origin
+Git merge two branch: git merge main
+Git current branch commit history: git log
+
+
