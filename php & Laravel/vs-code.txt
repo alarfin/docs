@@ -1,0 +1,7 @@
+# Reload vs code window:
+Ctrl+Shift+p
+Type reload window enter.
+
+# Create keyboard shortcut for copy line
+Setting icon->keyboard Shortcuts->search: copy line up->double click keybinding column and type shortcut keywords.
+
