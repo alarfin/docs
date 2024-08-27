@@ -1,0 +1,40 @@
+# Html input field
+    <input type="text" name="keys[MAIL_MAILER]" value="{{ Helper::getSetting('MAIL_MAILER')??'smtp' }}" class="form-control" required>
+
+# Method
+    public static function envUpdate($new_key, $new_value){
+        $envFile = base_path('.env');
+        $contents = File::get($envFile);
+        $lines = preg_split('/\r\n|\r|\n/', $contents);
+        $new_lines = [];
+        // dd($request->keys);
+        $all_keys = [];
+        foreach ($lines as &$line) {
+            // Skip empty lines and comments
+            if (empty($line)) {
+                $new_lines[] = '';
+                continue;
+            }
+            // dd($line);
+            // Split each line into key and value
+            $parts = explode('=', $line, 2);
+            $all_keys[] = $parts[0];
+            if ($parts[0] == $new_key) {
+                $parts[1] = '"'.$new_value.'"';
+            }
+            $parts = implode('=',$parts);
+            $new_lines[] = $parts;
+            // dd($parts);
+        }
+        if (!in_array($new_key, $all_keys)) {
+            $new_lines[] = $new_key.'='.'"'.$new_value.'"';
+        } 
+
+        $updatedContents = "<pre>".implode("\n",$new_lines)."</pre>";
+        $updatedContents = str_replace('<pre>', '', $updatedContents);
+        $updatedContents = str_replace('</pre>', '', $updatedContents);
+        // dd($updatedContents);
+        // Write the updated contents back to the .env file
+        $env = File::put($envFile, $updatedContents);
+        return $env;
+    }
