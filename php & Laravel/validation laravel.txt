@@ -1,6 +1,10 @@
 
 # Password validation
     $rules = [
+        'name' => 'required|string|max:191|unique:users',
+        'name' => 'required|string|max:191|unique:users,name,'.$user->id, // unique name validation update time
+        'email' => 'required|email:rfc,dns',
+        'image' => 'mimes:jpeg,jpg,png,gif|required|max:10000',
         'password' =>  [
             'nullable',
             'string',
