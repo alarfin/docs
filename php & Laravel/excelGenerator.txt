@@ -1,0 +1,3795 @@
+# Create custom file ExcelGenerate.php
+    App/Custom/ExcelGenerate.php
+
+# Create AliasServiceProvider
+    php artisan make:provider AliasServiceProvider 
+
+# Add Global Alias for ExcelGenerator 
+    $loader->alias('ExcelGenerator', ExcelGenerator::class);
+
+# Call methods
+    public function import(Request $request){
+        if ( $xlsx = ExcelGenerate::importExcel(base_path('public/customers2024-08-29.xlsx')) ) {
+            dd($xlsx->rows());
+        }
+    }
+    public function export(Request $request){
+        $customers = array(
+            array(
+                'id' => 'ID',
+                'firstname' => 'First name',
+                'lastname' => 'Last name',
+                'email' => 'Email',
+                'telephone' => 'Phone'
+            ),
+            array(
+                'id' => '1',
+                'firstname' => 'Chris',
+                'lastname' => 'Cavagin',
+                'email' => 'chriscavagin@gmail.com',
+                'telephone' => '9911223388'
+            ),
+        );
+        $xlx = ExcelGenerate::exportExcel($customers, 'customers','Info');
+    }
+
+# Add these code to App/Custom/ExcelGenerate.php;
+
+<?php
+
+namespace App\Custom;
+
+class ExcelGenerate
+{
+    public static function importExcel($file, $sheetname=null)
+    {
+        $extensions = explode('.', $file);
+        if (end($extensions) == "csv") {
+            $csv = new ImportCSV($file);
+            return $csv->parseFile($file);
+        }
+        if (end($extensions) == "xls") {
+            $xls = new ImportXLS($file);
+            return $xls->parseFile($file);
+        }else{
+            $xlsx = new ImportXLSX($file);
+            return $xlsx->parse($file);
+        }
+    }
+
+    public static function exportExcel($data, $filename=null,$sheetname=null)
+    {
+        $fileName = $filename . date('Y-m-d') . ".xlsx"; 
+        $xlsx = new ExportXLSX($data);
+        $xlsx = $xlsx->fromArray( $data, $sheetname ); 
+        $xlsx->downloadAs($fileName); 
+    }
+}
+/********
+ *  Import XLSX Files
+ */
+class ImportXLSX
+{
+    // Don't remove this string! Created by Sergey Shuchkin sergey.shuchkin@gmail.com
+    public static $CF = [ // Cell formats
+        0 => 'General',
+        1 => '0',
+        2 => '0.00',
+        3 => '#,##0',
+        4 => '#,##0.00',
+        9 => '0%',
+        10 => '0.00%',
+        11 => '0.00E+00',
+        12 => '# ?/?',
+        13 => '# ??/??',
+        14 => 'mm-dd-yy',
+        15 => 'd-mmm-yy',
+        16 => 'd-mmm',
+        17 => 'mmm-yy',
+        18 => 'h:mm AM/PM',
+        19 => 'h:mm:ss AM/PM',
+        20 => 'h:mm',
+        21 => 'h:mm:ss',
+        22 => 'm/d/yy h:mm',
+
+        37 => '#,##0 ;(#,##0)',
+        38 => '#,##0 ;[Red](#,##0)',
+        39 => '#,##0.00;(#,##0.00)',
+        40 => '#,##0.00;[Red](#,##0.00)',
+
+        44 => '_("$"* #,##0.00_);_("$"* \(#,##0.00\);_("$"* "-"??_);_(@_)',
+        45 => 'mm:ss',
+        46 => '[h]:mm:ss',
+        47 => 'mmss.0',
+        48 => '##0.0E+0',
+        49 => '@',
+
+        27 => '[$-404]e/m/d',
+        30 => 'm/d/yy',
+        36 => '[$-404]e/m/d',
+        50 => '[$-404]e/m/d',
+        57 => '[$-404]e/m/d',
+
+        59 => 't0',
+        60 => 't0.00',
+        61 => 't#,##0',
+        62 => 't#,##0.00',
+        67 => 't0%',
+        68 => 't0.00%',
+        69 => 't# ?/?',
+        70 => 't# ??/??',
+    ];
+    public $nf = []; // number formats
+    public $cellFormats = []; // cellXfs
+    public $datetimeFormat = 'Y-m-d H:i:s';
+    public $debug;
+    public $activeSheet = 0;
+    public $rowsExReader;
+
+    /* @var SimpleXMLElement[] $sheets */
+    public $sheets;
+    public $sheetFiles = [];
+    public $sheetMetaData = [];
+    public $sheetRels = [];
+    // scheme
+    public $styles;
+    /* @var array[] $package */
+    public $package;
+    public $sharedstrings;
+    public $date1904 = 0;
+    public $errno = 0;
+    public $error = false;
+    /**
+     * @var false|SimpleXMLElement
+     */
+    public $theme;
+
+
+    public function __construct($filename = null, $is_data = null, $debug = null)
+    {
+        if ($debug !== null) {
+            $this->debug = $debug;
+        }
+        $this->package = [
+            'filename' => '',
+            'mtime' => 0,
+            'size' => 0,
+            'comment' => '',
+            'entries' => []
+        ];
+        if ($filename && $this->unzip($filename, $is_data)) {
+            $this->parseEntries();
+        }
+    }
+
+    public function unzip($filename, $is_data = false)
+    {
+
+        if ($is_data) {
+            $this->package['filename'] = 'default.xlsx';
+            $this->package['mtime'] = time();
+            $this->package['size'] = ImportXLSX::strlen($filename);
+
+            $vZ = $filename;
+        } else {
+            if (!is_readable($filename)) {
+                $this->error(1, 'File not found ' . $filename);
+
+                return false;
+            }
+
+            // Package information
+            $this->package['filename'] = $filename;
+            $this->package['mtime'] = filemtime($filename);
+            $this->package['size'] = filesize($filename);
+
+            // Read file
+            $vZ = file_get_contents($filename);
+        }
+        // Cut end of central directory
+        /*      $aE = explode("\x50\x4b\x05\x06", $vZ);
+
+                if (count($aE) == 1) {
+                    $this->error('Unknown format');
+                    return false;
+                }
+        */
+        // Explode to each part
+        $aE = explode("\x50\x4b\x03\x04", $vZ);
+        array_shift($aE);
+
+        $aEL = count($aE);
+        if ($aEL === 0) {
+            $this->error(2, 'Unknown archive format');
+
+            return false;
+        }
+        // Search central directory end record
+        $last = $aE[$aEL - 1];
+        $last = explode("\x50\x4b\x05\x06", $last);
+        if (count($last) !== 2) {
+            $this->error(2, 'Unknown archive format');
+
+            return false;
+        }
+        // Search central directory
+        $last = explode("\x50\x4b\x01\x02", $last[0]);
+        if (count($last) < 2) {
+            $this->error(2, 'Unknown archive format');
+
+            return false;
+        }
+        $aE[$aEL - 1] = $last[0];
+
+        // Loop through the entries
+        foreach ($aE as $vZ) {
+            $aI = [];
+            $aI['E'] = 0;
+            $aI['EM'] = '';
+            // Retrieving local file header information
+            //          $aP = unpack('v1VN/v1GPF/v1CM/v1FT/v1FD/V1CRC/V1CS/V1UCS/v1FNL', $vZ);
+            $aP = unpack('v1VN/v1GPF/v1CM/v1FT/v1FD/V1CRC/V1CS/V1UCS/v1FNL/v1EFL', $vZ);
+
+            // Check if data is encrypted
+            //          $bE = ($aP['GPF'] && 0x0001) ? TRUE : FALSE;
+            //          $bE = false;
+            $nF = $aP['FNL'];
+            $mF = $aP['EFL'];
+
+            // Special case : value block after the compressed data
+            if ($aP['GPF'] & 0x0008) {
+                $aP1 = unpack('V1CRC/V1CS/V1UCS', ImportXLSX::substr($vZ, -12));
+
+                $aP['CRC'] = $aP1['CRC'];
+                $aP['CS'] = $aP1['CS'];
+                $aP['UCS'] = $aP1['UCS'];
+                // 2013-08-10
+                $vZ = ImportXLSX::substr($vZ, 0, -12);
+                if (ImportXLSX::substr($vZ, -4) === "\x50\x4b\x07\x08") {
+                    $vZ = ImportXLSX::substr($vZ, 0, -4);
+                }
+            }
+
+            // Getting stored filename
+            $aI['N'] = ImportXLSX::substr($vZ, 26, $nF);
+            $aI['N'] = str_replace('\\', '/', $aI['N']);
+
+            if (ImportXLSX::substr($aI['N'], -1) === '/') {
+                // is a directory entry - will be skipped
+                continue;
+            }
+
+            // Truncate full filename in path and filename
+            $aI['P'] = dirname($aI['N']);
+            $aI['P'] = ($aI['P'] === '.') ? '' : $aI['P'];
+            $aI['N'] = basename($aI['N']);
+
+            $vZ = ImportXLSX::substr($vZ, 26 + $nF + $mF);
+
+            if ($aP['CS'] > 0 && (ImportXLSX::strlen($vZ) !== (int)$aP['CS'])) { // check only if availabled
+                $aI['E'] = 1;
+                $aI['EM'] = 'Compressed size is not equal with the value in header information.';
+            }
+            
+            // DOS to UNIX timestamp
+            $aI['T'] = mktime(
+                ($aP['FT'] & 0xf800) >> 11,
+                ($aP['FT'] & 0x07e0) >> 5,
+                ($aP['FT'] & 0x001f) << 1,
+                ($aP['FD'] & 0x01e0) >> 5,
+                $aP['FD'] & 0x001f,
+                (($aP['FD'] & 0xfe00) >> 9) + 1980
+            );
+
+            $this->package['entries'][] = [
+                'data' => $vZ,
+                'ucs' => (int)$aP['UCS'], // ucompresses size
+                'cm' => $aP['CM'], // compressed method
+                'cs' => isset($aP['CS']) ? (int) $aP['CS'] : 0, // compresses size
+                'crc' => $aP['CRC'],
+                'error' => $aI['E'],
+                'error_msg' => $aI['EM'],
+                'name' => $aI['N'],
+                'path' => $aI['P'],
+                'time' => $aI['T']
+            ];
+        } // end for each entries
+
+        return true;
+    }
+
+
+    public function error($num = null, $str = null)
+    {
+        if ($num) {
+            $this->errno = $num;
+            $this->error = $str;
+            if ($this->debug) {
+                trigger_error(__CLASS__ . ': ' . $this->error, E_USER_WARNING);
+            }
+        }
+
+        return $this->error;
+    }
+
+    public function parseEntries()
+    {
+        // Document data holders
+        $this->sharedstrings = [];
+        $this->sheets = [];
+        //      $this->styles = array();
+        //        $m1 = 0; // memory_get_peak_usage( true );
+        // Read relations and search for officeDocument
+        if ($relations = $this->getEntryXML('_rels/.rels')) {
+            foreach ($relations->Relationship as $rel) {
+                $rel_type = basename(trim((string)$rel['Type'])); // officeDocument
+                $rel_target = ImportXLSX::getTarget('', (string)$rel['Target']); // /xl/workbook.xml or xl/workbook.xml
+
+                if (
+                    $rel_type === 'officeDocument'
+                    && $workbook = $this->getEntryXML($rel_target)
+                ) {
+                    $index_rId = []; // [0 => rId1]
+
+                    $index = 0;
+                    foreach ($workbook->sheets->sheet as $s) {
+                        $a = [];
+                        foreach ($s->attributes() as $k => $v) {
+                            $a[(string)$k] = (string)$v;
+                        }
+                        $this->sheetMetaData[$index] = $a;
+                        $index_rId[$index] = (string)$s['id'];
+                        $index++;
+                    }
+                    if ((int)$workbook->workbookPr['date1904'] === 1) {
+                        $this->date1904 = 1;
+                    }
+
+
+                    if ($workbookRelations = $this->getEntryXML(dirname($rel_target) . '/_rels/workbook.xml.rels')) {
+                        // Loop relations for workbook and extract sheets...
+                        foreach ($workbookRelations->Relationship as $workbookRelation) {
+                            $wrel_type = basename(trim((string)$workbookRelation['Type'])); // worksheet
+                            $wrel_target = ImportXLSX::getTarget(dirname($rel_target), (string)$workbookRelation['Target']);
+                            if (!$this->entryExists($wrel_target)) {
+                                continue;
+                            }
+
+                            if ($wrel_type === 'worksheet') { // Sheets
+                                if ($sheet = $this->getEntryXML($wrel_target)) {
+                                    $index = array_search((string)$workbookRelation['Id'], $index_rId, true);
+                                    $this->sheets[$index] = $sheet;
+                                    $this->sheetFiles[$index] = $wrel_target;
+                                    $srel_d = dirname($wrel_target);
+                                    $srel_f = basename($wrel_target);
+                                    $srel_file = $srel_d . '/_rels/' . $srel_f  . '.rels';
+                                    if ($this->entryExists($srel_file)) {
+                                        $this->sheetRels[$index] = $this->getEntryXML($srel_file);
+                                    }
+                                }
+                            } elseif ($wrel_type === 'sharedStrings') {
+                                if ($sharedStrings = $this->getEntryXML($wrel_target)) {
+                                    foreach ($sharedStrings->si as $val) {
+                                        if (isset($val->t)) {
+                                            $this->sharedstrings[] = (string)$val->t;
+                                        } elseif (isset($val->r)) {
+                                            $this->sharedstrings[] = ImportXLSX::parseRichText($val);
+                                        }
+                                    }
+                                }
+                            } elseif ($wrel_type === 'styles') {
+                                $this->styles = $this->getEntryXML($wrel_target);
+
+                                // number formats
+                                $this->nf = [];
+                                if (isset($this->styles->numFmts->numFmt)) {
+                                    foreach ($this->styles->numFmts->numFmt as $v) {
+                                        $this->nf[(int)$v['numFmtId']] = (string)$v['formatCode'];
+                                    }
+                                }
+
+                                $this->cellFormats = [];
+                                if (isset($this->styles->cellXfs->xf)) {
+                                    foreach ($this->styles->cellXfs->xf as $v) {
+                                        $x = [
+                                            'format' => null
+                                        ];
+                                        foreach ($v->attributes() as $k1 => $v1) {
+                                            $x[$k1] = (int) $v1;
+                                        }
+                                        if (isset($x['numFmtId'])) {
+                                            if (isset($this->nf[$x['numFmtId']])) {
+                                                $x['format'] = $this->nf[$x['numFmtId']];
+                                            } elseif (isset(self::$CF[$x['numFmtId']])) {
+                                                $x['format'] = self::$CF[$x['numFmtId']];
+                                            }
+                                        }
+
+                                        $this->cellFormats[] = $x;
+                                    }
+                                }
+                            } elseif ($wrel_type === 'theme') {
+                                $this->theme = $this->getEntryXML($wrel_target);
+                            }
+                        }
+
+                        //                        break;
+                    }
+                    // reptile hack :: find active sheet from workbook.xml
+                    if ($workbook->bookViews->workbookView) {
+                        foreach ($workbook->bookViews->workbookView as $v) {
+                            if (!empty($v['activeTab'])) {
+                                $this->activeSheet = (int)$v['activeTab'];
+                            }
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        //        $m2 = memory_get_peak_usage(true);
+        //        echo __FUNCTION__.' M='.round( ($m2-$m1) / 1048576, 2).'MB'.PHP_EOL;
+
+        if (count($this->sheets)) {
+            // Sort sheets
+            ksort($this->sheets);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public function getEntryXML($name)
+    {
+        if ($entry_xml = $this->getEntryData($name)) {
+            $this->deleteEntry($name); // economy memory
+            // dirty remove namespace prefixes and empty rows
+            $entry_xml = preg_replace('/xmlns[^=]*="[^"]*"/i', '', $entry_xml); // remove namespaces
+            $entry_xml .= ' '; // force run garbage collector
+            $entry_xml = preg_replace('/[a-zA-Z0-9]+:([a-zA-Z0-9]+="[^"]+")/', '$1', $entry_xml); // remove namespaced attrs
+            $entry_xml .= ' ';
+            $entry_xml = preg_replace('/<[a-zA-Z0-9]+:([^>]+)>/', '<$1>', $entry_xml); // fix namespaced openned tags
+            $entry_xml .= ' ';
+            $entry_xml = preg_replace('/<\/[a-zA-Z0-9]+:([^>]+)>/', '</$1>', $entry_xml); // fix namespaced closed tags
+            $entry_xml .= ' ';
+
+            if (strpos($name, '/sheet')) { // dirty skip empty rows
+                // remove <row...> <c /><c /></row>
+                $entry_xml = preg_replace('/<row[^>]+>\s*(<c[^\/]+\/>\s*)+<\/row>/', '', $entry_xml, -1, $cnt);
+                $entry_xml .= ' ';
+                // remove <row />
+                $entry_xml = preg_replace('/<row[^\/>]*\/>/', '', $entry_xml, -1, $cnt2);
+                $entry_xml .= ' ';
+                // remove <row...></row>
+                $entry_xml = preg_replace('/<row[^>]*><\/row>/', '', $entry_xml, -1, $cnt3);
+                $entry_xml .= ' ';
+                if ($cnt || $cnt2 || $cnt3) {
+                    $entry_xml = preg_replace('/<dimension[^\/]+\/>/', '', $entry_xml);
+                    $entry_xml .= ' ';
+                }
+                //              file_put_contents( basename( $name ), $entry_xml ); // @to do comment!!!
+            }
+            $entry_xml = trim($entry_xml);
+
+            //            $m1 = memory_get_usage();
+            // XML External Entity (XXE) Prevention, libxml_disable_entity_loader deprecated in PHP 8
+            if (LIBXML_VERSION < 20900 && function_exists('libxml_disable_entity_loader')) {
+                $_old = libxml_disable_entity_loader();
+            }
+
+            $_old_uie = libxml_use_internal_errors(true);
+
+            $entry_xmlobj = simplexml_load_string($entry_xml, 'SimpleXMLElement', LIBXML_COMPACT | LIBXML_PARSEHUGE);
+
+            libxml_use_internal_errors($_old_uie);
+
+            if (LIBXML_VERSION < 20900 && function_exists('libxml_disable_entity_loader')) {
+                /** @noinspection PhpUndefinedVariableInspection */
+                libxml_disable_entity_loader($_old);
+            }
+
+            //            $m2 = memory_get_usage();
+            //            echo round( ($m2-$m1) / (1024 * 1024), 2).' MB'.PHP_EOL;
+
+            if ($entry_xmlobj) {
+                return $entry_xmlobj;
+            }
+            $e = libxml_get_last_error();
+            if ($e) {
+                $this->error(3, 'XML-entry ' . $name . ' parser error ' . $e->message . ' line ' . $e->line);
+            }
+        } else {
+            $this->error(4, 'XML-entry not found ' . $name);
+        }
+
+        return false;
+    }
+
+    // sheets numeration: 1,2,3....
+
+    public function getEntryData($name)
+    {
+        $name = ltrim(str_replace('\\', '/', $name), '/');
+        $dir = ImportXLSX::strtoupper(dirname($name));
+        $name = ImportXLSX::strtoupper(basename($name));
+        foreach ($this->package['entries'] as &$entry) {
+            if (ImportXLSX::strtoupper($entry['path']) === $dir && ImportXLSX::strtoupper($entry['name']) === $name) {
+                if ($entry['error']) {
+                    return false;
+                }
+                switch ($entry['cm']) {
+                    case -1:
+                    case 0: // Stored
+                        // Here is nothing to do, the file ist flat.
+                        break;
+                    case 8: // Deflated
+                        $entry['data'] = gzinflate($entry['data']);
+                        break;
+                    case 12: // BZIP2
+                        if (extension_loaded('bz2')) {
+                            $entry['data'] = bzdecompress($entry['data']);
+                        } else {
+                            $entry['error'] = 7;
+                            $entry['error_message'] = 'PHP BZIP2 extension not available.';
+                        }
+                        break;
+                    default:
+                        $entry['error'] = 6;
+                        $entry['error_msg'] = 'De-/Compression method ' . $entry['cm'] . ' is not supported.';
+                }
+                if (!$entry['error'] && $entry['cm'] > -1) {
+                    $entry['cm'] = -1;
+                    if ($entry['data'] === false) {
+                        $entry['error'] = 2;
+                        $entry['error_msg'] = 'Decompression of data failed.';
+                    } elseif ($entry['ucs'] > 0 && (ImportXLSX::strlen($entry['data']) !== (int)$entry['ucs'])) {
+                        $entry['error'] = 3;
+                        $entry['error_msg'] = 'Uncompressed size is not equal with the value in header information.';
+                    } elseif (crc32($entry['data']) !== $entry['crc']) {
+                        $entry['error'] = 4;
+                        $entry['error_msg'] = 'CRC32 checksum is not equal with the value in header information.';
+                    }
+                }
+
+                return $entry['data'];
+            }
+        }
+        unset($entry);
+        $this->error(5, 'Entry not found ' . ($dir ? $dir . '/' : '') . $name);
+
+        return false;
+    }
+    public function deleteEntry($name)
+    {
+        $name = ltrim(str_replace('\\', '/', $name), '/');
+        $dir = ImportXLSX::strtoupper(dirname($name));
+        $name = ImportXLSX::strtoupper(basename($name));
+        foreach ($this->package['entries'] as $k => $entry) {
+            if (ImportXLSX::strtoupper($entry['path']) === $dir && ImportXLSX::strtoupper($entry['name']) === $name) {
+                unset($this->package['entries'][$k]);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static function strtoupper($str)
+    {
+        return (ini_get('mbstring.func_overload') & 2) ? mb_strtoupper($str, '8bit') : strtoupper($str);
+    }
+
+    /*
+     * @param string $name Filename in archive
+     * @return SimpleXMLElement|bool
+    */
+
+    public function entryExists($name)
+    {
+        // 0.6.6
+        $dir = ImportXLSX::strtoupper(dirname($name));
+        $name = ImportXLSX::strtoupper(basename($name));
+        foreach ($this->package['entries'] as $entry) {
+            if (ImportXLSX::strtoupper($entry['path']) === $dir && ImportXLSX::strtoupper($entry['name']) === $name) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function parseFile($filename, $debug = false)
+    {
+        return self::parse($filename, false, $debug);
+    }
+
+    public static function parse($filename, $is_data = false, $debug = false)
+    {
+        $xlsx = new self();
+        $xlsx->debug = $debug;
+        if ($xlsx->unzip($filename, $is_data)) {
+            $xlsx->parseEntries();
+        }
+        if ($xlsx->success()) {
+            return $xlsx;
+        }
+        self::parseError($xlsx->error());
+        self::parseErrno($xlsx->errno());
+
+        return false;
+    }
+
+    public static function csvToArray($filename)
+    {
+        $array[] = [];
+        if (($open = fopen($filename, "r")) !== false) {
+            while (($data = fgetcsv($open, 1000, ",")) !== false) {
+                $array[] = $data;
+            }
+            fclose($open);
+        }
+        return $array;
+    }
+
+    public function success()
+    {
+        return !$this->error;
+    }
+
+    // https://github.com/shuchkin/Importxlsx#gets-extend-cell-info-by--rowsex
+
+    public static function parseError($set = false)
+    {
+        static $error = false;
+
+        return $set ? $error = $set : $error;
+    }
+
+    public static function parseErrno($set = false)
+    {
+        static $errno = false;
+
+        return $set ? $errno = $set : $errno;
+    }
+
+    public function errno()
+    {
+        return $this->errno;
+    }
+
+    public static function parseData($data, $debug = false)
+    {
+        return self::parse($data, true, $debug);
+    }
+
+
+
+    public function worksheet($worksheetIndex = 0)
+    {
+        if (isset($this->sheets[$worksheetIndex])) {
+            return $this->sheets[$worksheetIndex];
+        }
+        $this->error(6, 'Worksheet not found ' . $worksheetIndex);
+
+        return false;
+    }
+
+    /**
+     * returns [numCols,numRows] of worksheet
+     *
+     * @param int $worksheetIndex
+     *
+     * @return array
+     */
+    public function dimension($worksheetIndex = 0)
+    {
+
+        if (($ws = $this->worksheet($worksheetIndex)) === false) {
+            return [0, 0];
+        }
+        /* @var SimpleXMLElement $ws */
+
+        $ref = (string)$ws->dimension['ref'];
+
+        if (ImportXLSX::strpos($ref, ':') !== false) {
+            $d = explode(':', $ref);
+            $idx = $this->getIndex($d[1]);
+
+            return [$idx[0] + 1, $idx[1] + 1];
+        }
+        /*
+        if ( $ref !== '' ) { // 0.6.8
+            $index = $this->getIndex( $ref );
+
+            return [ $index[0] + 1, $index[1] + 1 ];
+        }
+        */
+
+        // slow method
+        $maxC = $maxR = 0;
+        $iR = -1;
+        foreach ($ws->sheetData->row as $row) {
+            $iR++;
+            $iC = -1;
+            foreach ($row->c as $c) {
+                $iC++;
+                $idx = $this->getIndex((string)$c['r']);
+                $x = $idx[0];
+                $y = $idx[1];
+                if ($x > -1) {
+                    if ($x > $maxC) {
+                        $maxC = $x;
+                    }
+                    if ($y > $maxR) {
+                        $maxR = $y;
+                    }
+                } else {
+                    if ($iC > $maxC) {
+                        $maxC = $iC;
+                    }
+                    if ($iR > $maxR) {
+                        $maxR = $iR;
+                    }
+                }
+            }
+        }
+
+        return [$maxC + 1, $maxR + 1];
+    }
+
+    public function getIndex($cell = 'A1')
+    {
+
+        if (preg_match('/([A-Z]+)(\d+)/', $cell, $m)) {
+            $col = $m[1];
+            $row = $m[2];
+
+            $colLen = ImportXLSX::strlen($col);
+            $index = 0;
+
+            for ($i = $colLen - 1; $i >= 0; $i--) {
+                $index += (ord($col[$i]) - 64) * pow(26, $colLen - $i - 1);
+            }
+
+            return [$index - 1, $row - 1];
+        }
+
+        //      $this->error( 'Invalid cell index ' . $cell );
+
+        return [-1, -1];
+    }
+
+    public function value($cell)
+    {
+        // Determine data type
+        $dataType = (string)$cell['t'];
+
+        if ($dataType === '' || $dataType === 'n') { // number
+            $s = (int)$cell['s'];
+            if ($s > 0 && isset($this->cellFormats[$s])) {
+                if (array_key_exists('format', $this->cellFormats[$s])) {
+                    $format = $this->cellFormats[$s]['format'];
+                    if ($format && preg_match('/[mM]/', preg_replace('/\"[^"]+\"/', '', $format))) { // [mm]onth,AM|PM
+                        $dataType = 'D';
+                    }
+                } else {
+                    $dataType = 'n';
+                }
+            }
+        }
+
+        $value = '';
+
+        switch ($dataType) {
+            case 's':
+                // Value is a shared string
+                if ((string)$cell->v !== '') {
+                    $value = $this->sharedstrings[(int)$cell->v];
+                }
+                break;
+
+            case 'str': // formula?
+                if ((string)$cell->v !== '') {
+                    $value = (string)$cell->v;
+                }
+                break;
+
+            case 'b':
+                // Value is boolean
+                $value = (string)$cell->v;
+                if ($value === '0') {
+                    $value = false;
+                } elseif ($value === '1') {
+                    $value = true;
+                } else {
+                    $value = (bool)$cell->v;
+                }
+
+                break;
+
+            case 'inlineStr':
+                // Value is rich text inline
+                $value = ImportXLSX::parseRichText($cell->is);
+
+                break;
+
+            case 'e':
+                // Value is an error message
+                if ((string)$cell->v !== '') {
+                    $value = (string)$cell->v;
+                }
+                break;
+
+            case 'D':
+                // Date as float
+                if (!empty($cell->v)) {
+                    $value = $this->datetimeFormat ? gmdate($this->datetimeFormat, $this->unixstamp((float)$cell->v)) : (float)$cell->v;
+                }
+                break;
+
+            case 'd':
+                // Date as ISO YYYY-MM-DD
+                if ((string)$cell->v !== '') {
+                    $value = (string)$cell->v;
+                }
+                break;
+
+            default:
+                // Value is a string
+                $value = (string)$cell->v;
+
+                // Check for numeric values
+                if (is_numeric($value)) {
+                    /** @noinspection TypeUnsafeComparisonInspection */
+                    if ($value == (int)$value) {
+                        $value = (int)$value;
+                    }
+                    /** @noinspection TypeUnsafeComparisonInspection */
+                    elseif ($value == (float)$value) {
+                        $value = (float)$value;
+                    }
+                }
+        }
+
+        return $value;
+    }
+
+    public function unixstamp($excelDateTime)
+    {
+
+        $d = floor($excelDateTime); // days since 1900 or 1904
+        $t = $excelDateTime - $d;
+
+        if ($this->date1904) {
+            $d += 1462;
+        }
+
+        $t = (abs($d) > 0) ? ($d - 25569) * 86400 + round($t * 86400) : round($t * 86400);
+
+        return (int)$t;
+    }
+
+    public function toHTML($worksheetIndex = 0)
+    {
+        $s = '<table class=excel>';
+        foreach ($this->readRows($worksheetIndex) as $r) {
+            $s .= '<tr>';
+            foreach ($r as $c) {
+                $s .= '<td nowrap>' . ($c === '' ? '&nbsp' : htmlspecialchars($c, ENT_QUOTES)) . '</td>';
+            }
+            $s .= "</tr>\r\n";
+        }
+        $s .= '</table>';
+
+        return $s;
+    }
+    public function toHTMLEx($worksheetIndex = 0)
+    {
+        $s = '<table class=excel>';
+        $y = 0;
+        foreach ($this->readRowsEx($worksheetIndex) as $r) {
+            $s .= '<tr>';
+            $x = 0;
+            foreach ($r as $c) {
+                $tag = 'td';
+                $css = $c['css'];
+                if ($y === 0) {
+                    $tag = 'th';
+                    $css .= $c['width'] ? 'width: ' . round($c['width'] * 0.47, 2) . 'em;' : '';
+                }
+
+                if ($x === 0 && $c['height']) {
+                    $css .= 'height: ' . round($c['height'] * 1.3333) . 'px;';
+                }
+                $s .= '<' . $tag . ' style="' . $css . '" nowrap>' . ($c['value'] === '' ? '&nbsp' : htmlspecialchars($c['value'], ENT_QUOTES)) . '</' . $tag . '>';
+                $x++;
+            }
+            $s .= "</tr>\r\n";
+            $y++;
+        }
+        $s .= '</table>';
+
+        return $s;
+    }
+    public function rows($worksheetIndex = 0, $limit = 0)
+    {
+        return iterator_to_array($this->readRows($worksheetIndex, $limit), false);
+    }
+    // thx Gonzo
+    /**
+     * @param $worksheetIndex
+     * @param $limit
+     * @return \Generator
+     */
+    public function readRows($worksheetIndex = 0, $limit = 0)
+    {
+
+        if (($ws = $this->worksheet($worksheetIndex)) === false) {
+            return;
+        }
+        $dim = $this->dimension($worksheetIndex);
+        $numCols = $dim[0];
+        $numRows = $dim[1];
+
+        $emptyRow = [];
+        for ($i = 0; $i < $numCols; $i++) {
+            $emptyRow[] = '';
+        }
+
+        $curR = 0;
+        $_limit = $limit;
+        /* @var SimpleXMLElement $ws */
+        foreach ($ws->sheetData->row as $row) {
+            $r = $emptyRow;
+            $curC = 0;
+            foreach ($row->c as $c) {
+                // detect skipped cols
+                $idx = $this->getIndex((string)$c['r']);
+                $x = $idx[0];
+                $y = $idx[1];
+
+                if ($x > -1) {
+                    $curC = $x;
+                    while ($curR < $y) {
+                        yield $emptyRow;
+                        $curR++;
+                        $_limit--;
+                        if ($_limit === 0) {
+                            return;
+                        }
+                    }
+                }
+                $r[$curC] = $this->value($c);
+                $curC++;
+            }
+            yield $r;
+
+            $curR++;
+            $_limit--;
+            if ($_limit === 0) {
+                return;
+            }
+        }
+        while ($curR < $numRows) {
+            yield $emptyRow;
+            $curR++;
+            $_limit--;
+            if ($_limit === 0) {
+                return;
+            }
+        }
+    }
+
+    public function rowsEx($worksheetIndex = 0, $limit = 0)
+    {
+        return iterator_to_array($this->readRowsEx($worksheetIndex, $limit), false);
+    }
+    // https://github.com/shuchkin/Importxlsx#gets-extend-cell-info-by--rowsex
+    /**
+     * @param $worksheetIndex
+     * @param $limit
+     * @return \Generator|null
+     */
+    public function readRowsEx($worksheetIndex = 0, $limit = 0)
+    {
+        if (!$this->rowsExReader) {
+            require_once __DIR__ . '/ImportXLSXEx.php';
+            $this->rowsExReader = new ImportXLSXEx($this);
+        }
+        return $this->rowsExReader->readRowsEx($worksheetIndex, $limit);
+    }
+
+    /**
+     * Returns cell value
+     * VERY SLOW! Use ->rows() or ->rowsEx()
+     *
+     * @param int $worksheetIndex
+     * @param string|array $cell ref or coords, D12 or [3,12]
+     *
+     * @return mixed Returns NULL if not found
+     */
+    public function getCell($worksheetIndex = 0, $cell = 'A1')
+    {
+
+        if (($ws = $this->worksheet($worksheetIndex)) === false) {
+            return false;
+        }
+        if (is_array($cell)) {
+            $cell = ImportXLSX::num2name($cell[0]) . $cell[1]; // [3,21] -> D21
+        }
+        if (is_string($cell)) {
+            $result = $ws->sheetData->xpath("row/c[@r='" . $cell . "']");
+            if (count($result)) {
+                return $this->value($result[0]);
+            }
+        }
+
+        return null;
+    }
+
+    public function getSheets()
+    {
+        return $this->sheets;
+    }
+
+    public function sheetsCount()
+    {
+        return count($this->sheets);
+    }
+
+    public function sheetName($worksheetIndex)
+    {
+        $sn = $this->sheetNames();
+        if (isset($sn[$worksheetIndex])) {
+            return $sn[$worksheetIndex];
+        }
+
+        return false;
+    }
+
+    public function sheetNames()
+    {
+        $a = [];
+        foreach ($this->sheetMetaData as $k => $v) {
+            $a[$k] = $v['name'];
+        }
+        return $a;
+    }
+    public function sheetMeta($worksheetIndex = null)
+    {
+        if ($worksheetIndex === null) {
+            return $this->sheetMetaData;
+        }
+        return isset($this->sheetMetaData[$worksheetIndex]) ? $this->sheetMetaData[$worksheetIndex] : false;
+    }
+    public function isHiddenSheet($worksheetIndex)
+    {
+        return isset($this->sheetMetaData[$worksheetIndex]['state']) && $this->sheetMetaData[$worksheetIndex]['state'] === 'hidden';
+    }
+
+    public function getStyles()
+    {
+        return $this->styles;
+    }
+
+    public function getPackage()
+    {
+        return $this->package;
+    }
+
+    public function setDateTimeFormat($value)
+    {
+        $this->datetimeFormat = is_string($value) ? $value : false;
+    }
+
+    public static function getTarget($base, $target)
+    {
+        $target = trim($target);
+        if (strpos($target, '/') === 0) {
+            return ImportXLSX::substr($target, 1);
+        }
+        $target = ($base ? $base . '/' : '') . $target;
+        // a/b/../c -> a/c
+        $parts = explode('/', $target);
+        $abs = [];
+        foreach ($parts as $p) {
+            if ('.' === $p) {
+                continue;
+            }
+            if ('..' === $p) {
+                array_pop($abs);
+            } else {
+                $abs[] = $p;
+            }
+        }
+        return implode('/', $abs);
+    }
+
+    public static function parseRichText($is = null)
+    {
+        $value = [];
+
+        if (isset($is->t)) {
+            $value[] = (string)$is->t;
+        } elseif (isset($is->r)) {
+            foreach ($is->r as $run) {
+                $value[] = (string)$run->t;
+            }
+        }
+
+        return implode('', $value);
+    }
+
+    public static function num2name($num)
+    {
+        $numeric = ($num - 1) % 26;
+        $letter = chr(65 + $numeric);
+        $num2 = (int)(($num - 1) / 26);
+        if ($num2 > 0) {
+            return ImportXLSX::num2name($num2) . $letter;
+        }
+        return $letter;
+    }
+
+    public static function strlen($str)
+    {
+        return (ini_get('mbstring.func_overload') & 2) ? mb_strlen($str, '8bit') : strlen($str);
+    }
+
+    public static function substr($str, $start, $length = null)
+    {
+        return (ini_get('mbstring.func_overload') & 2) ? mb_substr($str, $start, ($length === null) ? mb_strlen($str, '8bit') : $length, '8bit') : substr($str, $start, ($length === null) ? strlen($str) : $length);
+    }
+
+    public static function strpos($haystack, $needle, $offset = 0)
+    {
+        return (ini_get('mbstring.func_overload') & 2) ? mb_strpos($haystack, $needle, $offset, '8bit') : strpos($haystack, $needle, $offset);
+    }
+}
+
+/********
+ *  Import XLS  Files
+ */
+class ImportXLS
+{
+    public const BIFF8 = 0x600;
+    public const BIFF7 = 0x500;
+    public const WORKBOOKGLOBALS = 0x5;
+    public const WORKSHEET = 0x10;
+
+    //const TYPE_BOF = 0x809;
+    public const TYPE_EOF = 0x0a;
+    public const TYPE_BOUNDSHEET = 0x85;
+    public const TYPE_DIMENSION = 0x200;
+    public const TYPE_ROW = 0x208;
+    public const TYPE_DBCELL = 0xd7;
+    public const TYPE_FILEPASS = 0x2f;
+    //const TYPE_NOTE = 0x1c;
+    //const TYPE_TXO = 0x1b6;
+    public const TYPE_RK = 0x7e;
+    public const TYPE_RK2 = 0x27e;
+    public const TYPE_MULRK = 0xbd;
+    public const TYPE_MULBLANK = 0xbe;
+    //const TYPE_INDEX = 0x20b;
+    public const TYPE_SST = 0xfc;
+    //const TYPE_EXTSST = 0xff;
+    //const TYPE_CONTINUE = 0x3c;
+    public const TYPE_LABEL = 0x204;
+    public const TYPE_LABELSST = 0xfd;
+    public const TYPE_NUMBER = 0x203;
+    public const TYPE_NAME = 0x18;
+    //const TYPE_ARRAY = 0x221;
+    //const TYPE_STRING = 0x207;
+    public const TYPE_FORMULA = 0x406;
+    public const TYPE_FORMULA2 = 0x6;
+    public const TYPE_FORMAT = 0x41e;
+    public const TYPE_XF = 0xe0;
+    public const TYPE_BOOLERR = 0x205;
+    //const TYPE_UNKNOWN = 0xffff;
+    public const TYPE_NINETEENFOUR = 0x22;
+    public const TYPE_MERGEDCELLS = 0xE5;
+    public const TYPE_WINDOW1 = 0x3D;
+
+    //const DEF_NUM_FORMAT = "%.2f";
+    public const DEF_NUM_FORMAT = '%s';
+
+    // OLE
+    public const NUM_BIG_BLOCK_DEPOT_BLOCKS_POS = 0x2c;
+    public const SMALL_BLOCK_DEPOT_BLOCK_POS = 0x3c;
+    public const ROOT_START_BLOCK_POS = 0x30;
+    public const BIG_BLOCK_SIZE = 0x200;
+    public const SMALL_BLOCK_SIZE = 0x40;
+    public const EXTENSION_BLOCK_POS = 0x44;
+    public const NUM_EXTENSION_BLOCK_POS = 0x48;
+    public const PROPERTY_STORAGE_BLOCK_SIZE = 0x80;
+    public const BIG_BLOCK_DEPOT_BLOCKS_POS = 0x4c;
+    public const SMALL_BLOCK_THRESHOLD = 0x1000;
+    // property storage offsets
+    public const SIZE_OF_NAME_POS = 0x40;
+    public const TYPE_POS = 0x42;
+    public const START_BLOCK_POS = 0x74;
+    public const SIZE_POS = 0x78;
+    /**
+     * Array of worksheets found
+     *
+     * @var array
+     * @access public
+     */
+    public $boundsheets = array();
+    public $activeSheet = 0;
+
+    /**
+     * Array of format records found
+     *
+     * @var array
+     * @access public
+     */
+    public $formatRecords = array();
+
+    /**
+     *
+     * @var array
+     * @access public
+     */
+    public $sst = array();
+
+    /**
+     * @var array
+     * @access public
+     */
+    public $sheets = array();
+    /**
+     * List of default date formats used by Excel
+     *
+     * @var array
+     * @access public
+     */
+    public $dateFormats = array(
+        0xe  => 'd/m/Y',
+        0xf  => 'd-M-Y',
+        0x10 => 'd-M',
+        0x11 => 'M-Y',
+        0x12 => 'h:i a',
+        0x13 => 'h:i:s a',
+        0x14 => 'H:i',
+        0x15 => 'H:i:s',
+        0x16 => 'd/m/Y H:i',
+        0x2d => 'i:s',
+        0x2e => 'H:i:s',
+        0x2f => 'i:s.S'
+    );
+    /**
+     * Default number formats used by Excel
+     *
+     * @var array
+     * @access public
+     */
+    public $numberFormats = array(
+        0x1  => '%1.0f',     // "0"
+        0x2  => '%1.2f',     // "0.00",
+        0x3  => '%1.0f',     //"#,##0",
+        0x4  => '%1.2f',     //"#,##0.00",
+        0x5  => '%1.0f',     /*"$#,##0;($#,##0)",*/
+        0x6  => '$%1.0f',    /*"$#,##0;($#,##0)",*/
+        0x7  => '$%1.2f',    //"$#,##0.00;($#,##0.00)",
+        0x8  => '$%1.2f',    //"$#,##0.00;($#,##0.00)",
+        0x9  => '%1.0f%%',   // "0%"
+        0xa  => '%1.2f%%',   // "0.00%"
+        0xb  => '%1.2f',     // 0.00E00",
+        0x25 => '%1.0f',    // "#,##0;(#,##0)",
+        0x26 => '%1.0f',    //"#,##0;(#,##0)",
+        0x27 => '%1.2f',    //"#,##0.00;(#,##0.00)",
+        0x28 => '%1.2f',    //"#,##0.00;(#,##0.00)",
+        0x29 => '%1.0f',    //"#,##0;(#,##0)",
+        0x2a => '$%1.0f',   //"$#,##0;($#,##0)",
+        0x2b => '%1.2f',    //"#,##0.00;(#,##0.00)",
+        0x2c => '$%1.2f',   //"$#,##0.00;($#,##0.00)",
+        0x30 => '%1.0f'
+    );
+    protected $datetimeFormat = 'Y-m-d H:i:s';
+    /**
+     * Default encoding
+     *
+     * @var string
+     * @access private
+     */
+    protected $defaultEncoding = 'UTF-8';
+    /**
+     * Default number format
+     *
+     * @var integer
+     * @access private
+     */
+    protected $defaultFormat = self::DEF_NUM_FORMAT;
+    /**
+     * List of formats to use for each column
+     *
+     * @var array
+     * @access private
+     */
+    protected $columnsFormat = array();
+
+    protected $nineteenFour;
+    protected $multiplier;
+    protected $sn;
+    protected $curFormat;
+
+    // OLERead
+    protected $data;
+    protected $bigBlockChain;
+    protected $smallBlockChain;
+    protected $rootEntry;
+    protected $entry;
+    protected $props;
+
+    // sergey.shuchkin@gmail.com
+    protected $wrkbook; // false - to use excel format
+    protected $error = false;
+    protected $debug;
+
+    // {{{ Spreadsheet_Excel_Reader()
+
+    /**
+     * Constructor
+     *
+     * @param string $filename XLS Filename or xls contents
+     * @param bool $isData If True then $filename is contents
+     * @param bool $debug Trigger PHP errors?
+     */
+    public function __construct(string $filename, bool $isData = false, bool $debug = false)
+    {
+        $this->debug = $debug;
+        $this->_oleread($filename, $isData);
+        $this->_parse();
+    }
+    public static function parseFile($filename, $debug = false)
+    {
+        return self::parse($filename, false, $debug);
+    }
+
+    public static function parseData($data, $debug = false)
+    {
+        return self::parse($data, true, $debug);
+    }
+    public static function parse($filename, $isData = false, $debug = false)
+    {
+        $xls = new self($filename, $isData, $debug);
+        if ($xls->success()) {
+            return $xls;
+        }
+        self::parseError($xls->error());
+
+        return false;
+    }
+    public static function parseError($set = false)
+    {
+        static $error = false;
+        return $set ? $error = $set : $error;
+    }
+    public function error($set = false)
+    {
+        if ($set) {
+            $this->error = $set;
+            if ($this->debug) {
+                trigger_error($set);
+            }
+        }
+
+        return $this->error;
+    }
+    public function success(): bool
+    {
+        return ! $this->error;
+    }
+    public function rows($sheetNum = 0, $limit = 0)
+    {
+        if ($this->sheets[$sheetNum]) {
+            $s      = $this->sheets[$sheetNum];
+            $result = array();
+            for ($i = 0; $i < $s['numRows']; $i++) {
+                $r = array();
+                for ($j = 0; $j < $s['numCols']; $j++) {
+                    $r[$j] = $s['cells'][$i][$j] ?? '';
+                }
+                $result[] = $r;
+                $limit--;
+                if ($limit === 0) {
+                    break;
+                }
+            }
+
+            return $result;
+        }
+
+        return false;
+    }
+    public function rowsEx($sheetNum = 0, $limit = 0): array
+    {
+        if ($this->sheets[$sheetNum]) {
+            $s      = $this->sheets[$sheetNum];
+            $result = array();
+            for ($i = 0; $i < $s['numRows']; $i++) {
+                $r = array();
+                for ($j = 0; $j < $s['numCols']; $j++) {
+                    $v = $s['cellsInfo'][$i][$j] ?? array();
+                    //                    if ( $v['type'] === self::TYPE_RK || $v['type'] === self::TYPE_RK2 ||
+                    $v['value'] = $s['cells'][$i][$j] ?? '';
+                    $r[$j] = $v;
+                }
+                $result[] = $r;
+                $limit--;
+                if ($limit === 0) {
+                    break;
+                }
+            }
+
+            return $result;
+        }
+
+        return [];
+    }
+    public function toHTML($worksheetIndex = 0): string
+    {
+        $s = '<table class=excel>';
+        foreach ($this->rows($worksheetIndex) as $r) {
+            $s .= '<tr>';
+            foreach ($r as $c) {
+                $s .= '<td nowrap>' . ($c === '' ? '&nbsp' : htmlspecialchars($c, ENT_QUOTES)) . '</td>';
+            }
+            $s .= "</tr>\r\n";
+        }
+        $s .= '</table>';
+
+        return $s;
+    }
+    public function setDateTimeFormat($value): ImportXLS
+    {
+        $this->datetimeFormat = is_string($value) ? $value : false;
+        return $this;
+    }
+    public function sheetNames(): array
+    {
+        $result = array();
+        foreach ($this->boundsheets as $k => $v) {
+            $result[$k] = $v['name'];
+        }
+        return $result;
+    }
+    public function sheetName($index)
+    {
+        return isset($this->boundsheets[$index])  ? $this->boundsheets[$index]['name'] : null;
+    }
+
+    // }}}
+
+    protected function _oleread($sFileName, $isData = false): bool
+    {
+        if ($isData) {
+            $this->data = $sFileName;
+        } else {
+            // check if file exist and is readable (Darko Miljanovic)
+            if (! is_readable($sFileName)) {
+                $this->error('File not is readable ' . $sFileName);
+                return false;
+            }
+
+            $this->data = file_get_contents($sFileName);
+            if (! $this->data) {
+                $this->error('File reading error ' . $sFileName);
+                return false;
+            }
+        }
+        //echo IDENTIFIER_OLE;
+        //echo 'start';
+        if (strpos($this->data, pack('CCCCCCCC', 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) !== 0) {
+            $this->error('File is not XLS');
+
+            return false;
+        }
+
+        $numBigBlockDepotBlocks = $this->_getInt4d(self::NUM_BIG_BLOCK_DEPOT_BLOCKS_POS);
+        $sbdStartBlock = $this->_getInt4d(self::SMALL_BLOCK_DEPOT_BLOCK_POS);
+        $rootStartBlock = $this->_getInt4d(self::ROOT_START_BLOCK_POS);
+        $extensionBlock = $this->_getInt4d(self::EXTENSION_BLOCK_POS);
+        $numExtensionBlocks = $this->_getInt4d(self::NUM_EXTENSION_BLOCK_POS);
+        //echo "sbdStartBlock = $this->sbdStartBlock\n";
+        $bigBlockDepotBlocks = array();
+        $pos                 = self::BIG_BLOCK_DEPOT_BLOCKS_POS;
+        // echo "pos = $pos";
+        $bbdBlocks = $numBigBlockDepotBlocks;
+
+        if ($numExtensionBlocks !== 0) {
+            $bbdBlocks = (self::BIG_BLOCK_SIZE - self::BIG_BLOCK_DEPOT_BLOCKS_POS) / 4;
+        }
+
+        for ($i = 0; $i < $bbdBlocks; $i++) {
+            $bigBlockDepotBlocks[$i] = $this->_getInt4d($pos);
+            $pos                       += 4;
+        }
+
+
+        for ($j = 0; $j < $numExtensionBlocks; $j++) {
+            $pos          = ($extensionBlock + 1) * self::BIG_BLOCK_SIZE;
+            $blocksToRead = min($numBigBlockDepotBlocks - $bbdBlocks, self::BIG_BLOCK_SIZE / 4 - 1);
+
+            for ($i = $bbdBlocks; $i < $bbdBlocks + $blocksToRead; $i++) {
+                $bigBlockDepotBlocks[$i] = $this->_getInt4d($pos);
+                $pos                       += 4;
+            }
+
+            $bbdBlocks += $blocksToRead;
+            if ($bbdBlocks < $numBigBlockDepotBlocks) {
+                $extensionBlock = $this->_getInt4d($pos);
+            }
+        }
+
+        // var_dump($bigBlockDepotBlocks);
+
+        // readBigBlockDepot
+
+        $index               = 0;
+        $this->bigBlockChain = array();
+
+        for ($i = 0; $i < $numBigBlockDepotBlocks; $i++) {
+            $pos = ($bigBlockDepotBlocks[$i] + 1) * self::BIG_BLOCK_SIZE;
+            //echo "pos = $pos";
+            for ($j = 0; $j < self::BIG_BLOCK_SIZE / 4; $j++) {
+                $this->bigBlockChain[$index] = $this->_getInt4d($pos);
+                $pos                           += 4;
+                $index++;
+            }
+        }
+
+        //var_dump($this->bigBlockChain);
+        //echo '=====2';
+        // readSmallBlockDepot();
+
+        $index                 = 0;
+        $sbdBlock              = $sbdStartBlock;
+        $this->smallBlockChain = array();
+
+        while ($sbdBlock !== -2) {
+            $pos = ($sbdBlock + 1) * self::BIG_BLOCK_SIZE;
+
+            for ($j = 0; $j < self::BIG_BLOCK_SIZE / 4; $j++) {
+                $this->smallBlockChain[$index] = $this->_getInt4d($pos);
+                $pos                             += 4;
+                $index++;
+            }
+
+            $sbdBlock = $this->bigBlockChain[$sbdBlock];
+        }
+
+
+        // readData(rootStartBlock)
+        $block = $rootStartBlock;
+
+        $this->entry = $this->_readData($block);
+
+        /*
+        while ($block != -2)  {
+            $pos = ($block + 1) * self::BIG_BLOCK_SIZE;
+            $this->entry = $this->entry.substr($this->_data, $pos, self::BIG_BLOCK_SIZE);
+            $block = $this->bigBlockChain[$block];
+        }
+        */
+        //echo '==='.$this->entry."===";
+        $this->_readPropertySets();
+        $this->data = $this->_readWorkBook();
+
+        return true;
+    }
+
+    // {{{ setOutputEncoding()
+    protected function _getInt2d($pos): int
+    {
+        return ord($this->data[$pos]) | ord($this->data[$pos + 1]) << 8;
+        //      return ($value > 0x7FFFFFFF) ? $value - 0x100000000 : $value;
+    }
+    protected function _getInt4d($pos): int
+    {
+        $value = ord($this->data[$pos]) | (ord($this->data[$pos + 1]) << 8) | (ord($this->data[$pos + 2]) << 16) | (ord($this->data[$pos + 3]) << 24);
+        return ($value > 0x7FFFFFFF) ? $value - 0x100000000 : $value;
+    }
+
+    // }}}
+
+    // {{{ setRowColOffset()
+
+    protected function _readData($bl): string
+    {
+        $block = $bl;
+
+        $data = '';
+
+        while ($block !== -2) {
+            $pos  = ($block + 1) * self::BIG_BLOCK_SIZE;
+            $data .= substr($this->data, $pos, self::BIG_BLOCK_SIZE);
+            //echo "pos = $pos data=$data\n";
+            $block = $this->bigBlockChain[$block];
+        }
+
+        return $data;
+    }
+
+    // }}}
+    // {{{ setDefaultFormat()
+
+    protected function _readPropertySets(): void
+    {
+        $offset = 0;
+        //var_dump($this->entry);
+        while ($offset < strlen($this->entry)) {
+            $d = substr($this->entry, $offset, self::PROPERTY_STORAGE_BLOCK_SIZE);
+
+            $nameSize = ord($d[self::SIZE_OF_NAME_POS]) | (ord($d[self::SIZE_OF_NAME_POS + 1]) << 8);
+
+            $type = ord($d[self::TYPE_POS]);
+            //$maxBlock = $this->_strlen($d) / self::BIG_BLOCK_SIZE - 1;
+
+            $startBlock = ord($d[self::START_BLOCK_POS]) | (ord($d[self::START_BLOCK_POS + 1]) << 8) | (ord($d[self::START_BLOCK_POS + 2]) << 16) | (ord($d[self::START_BLOCK_POS + 3]) << 24);
+            $size       = ord($d[self::SIZE_POS]) | (ord($d[self::SIZE_POS + 1]) << 8) | (ord($d[self::SIZE_POS + 2]) << 16) | (ord($d[self::SIZE_POS + 3]) << 24);
+
+            $name = '';
+            for ($i = 0; $i < $nameSize; $i++) {
+                $name .= $d[$i];
+            }
+
+            $name = str_replace("\x00", '', $name);
+
+            $this->props[] = array(
+                'name'       => $name,
+                'type'       => $type,
+                'startBlock' => $startBlock,
+                'size'       => $size
+            );
+
+            if (($name === 'Workbook') || ($name === 'Book')) {
+                $this->wrkbook = count($this->props) - 1;
+            }
+
+            if ($name === 'Root Entry') {
+                $this->rootEntry = count($this->props) - 1;
+            }
+
+            //echo "name ==$name=\n";
+
+
+            $offset += self::PROPERTY_STORAGE_BLOCK_SIZE;
+        }
+    }
+
+    // }}}
+    // {{{ setColumnFormat()
+
+    protected function _readWorkBook(): string
+    {
+        if ($this->props[$this->wrkbook]['size'] < self::SMALL_BLOCK_THRESHOLD) {
+            //        getSmallBlockStream(PropertyStorage ps)
+
+            $rootdata = $this->_readData($this->props[$this->rootEntry]['startBlock']);
+
+            $streamData = '';
+            $block      = (int) $this->props[$this->wrkbook]['startBlock'];
+            //$count = 0;
+            while ($block !== -2) {
+                $pos        = $block * self::SMALL_BLOCK_SIZE;
+                $streamData .= substr($rootdata, $pos, self::SMALL_BLOCK_SIZE);
+
+                $block = $this->smallBlockChain[$block];
+            }
+
+            return $streamData;
+        }
+
+        $numBlocks = $this->props[$this->wrkbook]['size'] / self::BIG_BLOCK_SIZE;
+        if ($this->props[$this->wrkbook]['size'] % self::BIG_BLOCK_SIZE !== 0) {
+            $numBlocks++;
+        }
+
+        if ($numBlocks === 0) {
+            return '';
+        }
+
+        //echo "numBlocks = $numBlocks\n";
+        //byte[] streamData = new byte[numBlocks * self::BIG_BLOCK_SIZE];
+        //print_r($this->wrkbook);
+        $streamData = '';
+        $block      = $this->props[$this->wrkbook]['startBlock'];
+
+        //echo "block = $block";
+        while ($block !== -2) {
+            $pos        = ($block + 1) * self::BIG_BLOCK_SIZE;
+            $streamData .= substr($this->data, $pos, self::BIG_BLOCK_SIZE);
+            $block      = $this->bigBlockChain[$block];
+        }
+
+        //echo 'stream'.$streamData;
+        return $streamData;
+    }
+
+
+    // }}}
+    protected function parseSubstreamHeader($pos): array
+    {
+        $length = $this->_getInt2d($pos + 2);
+
+        $version       = $this->_getInt2d($pos + 4);
+        $substreamType = $this->_getInt2d($pos + 6);
+        return array($length, $version, $substreamType);
+    }
+    // {{{ _parse()
+
+    /**
+     * Parse a workbook
+     *
+     * @access private
+     * @return bool
+     */
+    protected function _parse()
+    {
+        $pos = 0;
+
+        //        $code = ord($this->data[$pos]) | ord($this->data[$pos+1])<<8;
+        [$length, $version, $substreamType] = $this->parseSubstreamHeader($pos);
+        //      echo "Start parse code=".base_convert($code,10,16)." version=".base_convert($version,10,16)." substreamType=".base_convert($substreamType,10,16).""."\n";
+
+        //      die();
+
+        if (($version !== self::BIFF8) &&
+            ($version !== self::BIFF7)
+        ) {
+            return false;
+        }
+
+        if ($substreamType !== self::WORKBOOKGLOBALS) {
+            return false;
+        }
+
+        //print_r($rec);
+        $pos += $length + 4;
+
+        $code   = ord($this->data[$pos]) | ord($this->data[$pos + 1]) << 8;
+        $length = ord($this->data[$pos + 2]) | ord($this->data[$pos + 3]) << 8;
+
+        while ($code !== self::TYPE_EOF) {
+            switch ($code) {
+                case self::TYPE_SST:
+                    //echo "Type_SST\n";
+                    $formattingRuns    = 0;
+                    $extendedRunLength = 0;
+                    $spos              = $pos + 4;
+                    $limitpos          = $spos + $length;
+                    $uniqueStrings     = $this->_getInt4d($spos + 4);
+                    $spos              += 8;
+                    for ($i = 0; $i < $uniqueStrings; $i++) {
+                        // Read in the number of characters
+                        if ($spos === $limitpos) {
+                            $opcode    = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                            $conlength = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                            if ($opcode !== 0x3c) {
+                                return -1;
+                            }
+                            $spos     += 4;
+                            $limitpos = $spos + $conlength;
+                        }
+                        $numChars = ord($this->data[$spos]) | (ord($this->data[$spos + 1]) << 8);
+                        //echo "i = $i pos = $pos numChars = $numChars ";
+                        $spos        += 2;
+                        $optionFlags = ord($this->data[$spos]);
+                        $spos++;
+                        $asciiEncoding  = (($optionFlags & 0x01) === 0);
+                        $extendedString = (($optionFlags & 0x04) !== 0);
+
+                        // See if string contains formatting information
+                        $richString = (($optionFlags & 0x08) !== 0);
+
+                        if ($richString) {
+                            // Read in the crun
+                            $formattingRuns = $this->_getInt2d($spos);
+                            $spos           += 2;
+                        }
+
+                        if ($extendedString) {
+                            // Read in cchExtRst
+                            $extendedRunLength = $this->_getInt4d($spos);
+                            $spos              += 4;
+                        }
+
+                        $len = $asciiEncoding ? $numChars : $numChars * 2;
+                        if ($spos + $len < $limitpos) {
+                            $retstr = substr($this->data, $spos, $len);
+                            $spos   += $len;
+                        } else {
+                            // found countinue
+                            $retstr    = substr($this->data, $spos, $limitpos - $spos);
+                            $bytesRead = $limitpos - $spos;
+                            $charsLeft = $numChars - ($asciiEncoding ? $bytesRead : ($bytesRead / 2));
+                            $spos      = $limitpos;
+
+                            while ($charsLeft > 0) {
+                                $opcode    = $this->_getInt2d($spos);
+                                $conlength = $this->_getInt2d($spos + 2);
+                                if ($opcode !== 0x3c) {
+                                    return -1;
+                                }
+                                $spos     += 4;
+                                $limitpos = $spos + $conlength;
+                                $option   = ord($this->data[$spos]);
+                                $spos++;
+                                if ($asciiEncoding && ($option === 0)) {
+                                    $len           = min($charsLeft, $limitpos - $spos); // min($charsLeft, $conlength);
+                                    $retstr        .= substr($this->data, $spos, $len);
+                                    $charsLeft     -= $len;
+                                    $asciiEncoding = true;
+                                } elseif (! $asciiEncoding && ($option !== 0)) {
+                                    $len           = min($charsLeft * 2, $limitpos - $spos); // min($charsLeft, $conlength);
+                                    $retstr        .= substr($this->data, $spos, $len);
+                                    $charsLeft     -= $len / 2;
+                                    $asciiEncoding = false;
+                                } elseif (! $asciiEncoding && ($option === 0)) {
+                                    // Bummer - the string starts off as Unicode, but after the
+                                    // continuation it is in straightforward ASCII encoding
+                                    $len = min($charsLeft, $limitpos - $spos); // min($charsLeft, $conlength);
+                                    for ($j = 0; $j < $len; $j++) {
+                                        $retstr .= $this->data[$spos + $j] . chr(0);
+                                    }
+                                    $charsLeft     -= $len;
+                                    $asciiEncoding = false;
+                                } else {
+                                    $newstr = '';
+                                    for ($j = 0, $len_retstr = strlen($retstr); $j < $len_retstr; $j++) {
+                                        $newstr = $retstr[$j] . chr(0);
+                                    }
+                                    $retstr        = $newstr;
+                                    $len           = min($charsLeft * 2, $limitpos - $spos); // min($charsLeft, $conlength);
+                                    $retstr        .= substr($this->data, $spos, $len);
+                                    $charsLeft     -= $len / 2;
+                                    $asciiEncoding = false;
+                                    //echo "Izavrat\n";
+                                }
+                                $spos += $len;
+                            }
+                        }
+                        $retstr = $asciiEncoding ? $this->_latin1toDef($retstr) : $this->_UTF16toDef($retstr);
+                        //                                              echo "Str $i = $retstr\n";
+                        if ($richString) {
+                            $spos += 4 * $formattingRuns;
+                        }
+
+                        // For extended strings, skip over the extended string data
+                        if ($extendedString) {
+                            $spos += $extendedRunLength;
+                        }
+                        //if ($retstr == 'Derby'){
+                        //      echo "bb\n";
+                        //}
+                        $this->sst[] = $retstr;
+                    }
+                    /*$continueRecords = array();
+                    while ($this->getNextCode() == Type_CONTINUE) {
+                        $continueRecords[] = &$this->nextRecord();
+                    }
+                    //echo " 1 Type_SST\n";
+                    $this->shareStrings = new SSTRecord($r, $continueRecords);
+                    //print_r($this->shareStrings->strings);
+                     */
+                    // echo 'SST read: '.($time_end-$time_start)."\n";
+                    break;
+
+                case self::TYPE_FILEPASS:
+                    return false;
+                case self::TYPE_NAME:
+                    //echo "Type_NAME\n";
+                    break;
+                case self::TYPE_FORMAT:
+                    $indexCode = $this->_getInt2d($pos + 4);
+
+                    if ($version === self::BIFF8) {
+                        $numchars = $this->_getInt2d($pos + 6);
+                        if (ord($this->data[$pos + 8]) === 0) { // ascii
+                            $formatString = substr($this->data, $pos + 9, $numchars);
+                            $formatString = $this->_latin1toDef($formatString);
+                        } else {
+                            $formatString = substr($this->data, $pos + 9, $numchars * 2);
+                            $formatString = $this->_UTF16toDef($formatString);
+                        }
+                    } else {
+                        $numchars     = ord($this->data[$pos + 6]);
+                        $formatString = substr($this->data, $pos + 7, $numchars * 2);
+                        $formatString = $this->_latin1toDef($formatString);
+                    }
+
+                    $this->formatRecords[$indexCode] = $formatString;
+                    //                  echo "Type.FORMAT[$indexCode]=$formatString\n";
+                    break;
+                case self::TYPE_XF:
+                    $formatstr = '';
+                    $indexCode = $this->_getInt2d($pos + 6);
+                    //                  echo "\nType.XF code=".$indexCode." dateFormat=".$this->dateFormats[ $indexCode ]." numberFormats=".$this->numberFormats[ $indexCode ].PHP_EOL;
+                    if (array_key_exists($indexCode, $this->dateFormats)) {
+                        //echo "isdate ".$dateFormats[$indexCode];
+                        $this->formatRecords['xfrecords'][] = array(
+                            'type'   => 'date',
+                            'format' => $this->dateFormats[$indexCode]
+                        );
+                    } elseif (array_key_exists($indexCode, $this->numberFormats)) {
+                        //echo "isnumber ".$this->numberFormats[$indexCode];
+                        $this->formatRecords['xfrecords'][] = array(
+                            'type'   => 'number',
+                            'format' => $this->numberFormats[$indexCode]
+                        );
+                    } else {
+                        $isdate = false;
+                        if ($indexCode > 0) {
+                            if (isset($this->formatRecords[$indexCode])) {
+                                //                              die( 'L:'.__LINE__ );
+                                $formatstr = $this->formatRecords[$indexCode];
+                            }
+                            //echo '.other.';
+                            //                          echo "\nfl=".strlen( $formatstr)." fs=$formatstr=\n";
+                            //                          echo "\ncode=".$indexCode." fl=".strlen( $formatstr)." fs=$formatstr=\n";
+                            $fs = str_replace('\\', '', $formatstr);
+                            if ($fs && preg_match('/^[hmsday\/\-:\., ]+$/i', $fs)) { // found day and time format
+                                $isdate    = true;
+                                $formatstr = str_replace(array('yyyy', ':mm', 'mm', 'dddd', 'dd', 'h', 'ss'), array('Y', ':i', 'm', 'l', 'd', 'H', 's'), $fs);
+                            }
+                        }
+
+                        if ($isdate) {
+                            $this->formatRecords['xfrecords'][] = array(
+                                'type'   => 'date',
+                                'format' => $formatstr,
+                                'code'   => $indexCode
+                            );
+                        } else {
+                            //                          echo 'fs='.$formatstr.PHP_EOL;
+                            $this->formatRecords['xfrecords'][] = array(
+                                'type'   => 'other',
+                                'format' => '',
+                                'code'   => $indexCode
+                            );
+                        }
+                    }
+                    //                  echo count( $this->formatRecords['xfrecords'] ).' fs='.$formatstr.' ' . PHP_EOL;
+                    //echo "\n";
+                    break;
+                case self::TYPE_NINETEENFOUR:
+                    //echo "Type.NINETEENFOUR\n";
+                    $this->nineteenFour = (ord($this->data[$pos + 4]) === 1);
+                    break;
+                case self::TYPE_BOUNDSHEET:
+                    //echo "Type.BOUNDSHEET\n";
+                    $rec_offset = $this->_getInt4d($pos + 4);
+                    //                  $rec_typeFlag = ord($this->_data[$pos + 8]);
+                    $rec_length = ord($this->data[$pos + 10]);
+                    $hidden = false;
+                    $rec_name   = '';
+                    if ($version === self::BIFF8) {
+                        //ord($this->data[$pos + 9])
+                        $hidden = ord($this->data[$pos + 8]) === 1;
+                        $chartype = ord($this->data[$pos + 11]);
+                        if ($chartype === 0) {
+                            $rec_name = substr($this->data, $pos + 12, $rec_length);
+                            $rec_name = $this->_latin1toDef($rec_name);
+                        } else {
+                            $rec_name = substr($this->data, $pos + 12, $rec_length * 2);
+                            $rec_name = $this->_UTF16toDef($rec_name);
+                        }
+                    } elseif ($version === self::BIFF7) {
+                        $rec_name = substr($this->data, $pos + 11, $rec_length);
+                    }
+                    $this->boundsheets[] = array(
+                        'name'   => $rec_name,
+                        'offset' => $rec_offset,
+                        'hidden' => $hidden,
+                        'active' => false
+                    );
+
+                    break;
+
+                case self::TYPE_WINDOW1:
+                    $this->activeSheet = $this->_getInt2d($pos + 14);
+                    break;
+            }
+
+            //echo "Code = ".base_convert($r['code'],10,16)."\n";
+            $pos    += $length + 4;
+            $code   = $this->_getInt2d($pos);
+            $length = $this->_getInt2d($pos + 2);
+
+            //$r = &$this->nextRecord();
+            //echo "1 Code = ".base_convert($r['code'],10,16)."\n";
+        }
+
+        foreach ($this->boundsheets as $key => $val) {
+            $this->sn = $key;
+            $this->_parseSheet($val['offset']);
+            if ($key === $this->activeSheet) {
+                $this->boundsheets[$key]['active'] = true;
+            }
+        }
+
+        return true;
+    }
+    protected function _latin1toDef($string)
+    {
+        $result = $string;
+        if ($this->defaultEncoding) {
+            $result = mb_convert_encoding($string, $this->defaultEncoding, 'ISO-8859-1');
+        }
+
+        return $result;
+    }
+    protected function _UTF16toDef($string)
+    {
+        $result = $string;
+        if ($this->defaultEncoding && $this->defaultEncoding !== 'UTF-16LE') {
+            $result = mb_convert_encoding($string, $this->defaultEncoding, 'UTF-16LE');
+        }
+
+        return $result;
+    }
+
+    protected function _parseSheet($spos): bool
+    {
+        $cont = true;
+        // read BOF
+        //      $code = ord($this->_data[$spos]) | ord($this->_data[$spos + 1]) << 8;
+        [$length, $version, $substreamType] = $this->parseSubstreamHeader($spos);
+
+        if (($version !== self::BIFF8) && ($version !== self::BIFF7)) {
+            return false;
+        }
+
+        if ($substreamType !== self::WORKSHEET) {
+            return false;
+        }
+        //echo "Start parse code=".base_convert($code,10,16)." version=".base_convert($version,10,16)." substreamType=".base_convert($substreamType,10,16).""."\n";
+        $spos += $length + 4;
+        //var_dump($this->formatRecords);
+        //echo "code $code $length";
+
+        $this->sheets[$this->sn]['maxrow'] = 0;
+        $this->sheets[$this->sn]['maxcol'] = 0;
+        $this->sheets[$this->sn]['numRows'] = 0;
+        $this->sheets[$this->sn]['numCols'] = 0;
+
+        while ($cont) {
+            //echo "mem= ".memory_get_usage()."\n";
+            //            $r = &$this->file->nextRecord();
+            $lowcode = ord($this->data[$spos]);
+            if ($lowcode === self::TYPE_EOF) {
+                break;
+            }
+            $t_code                                = $lowcode | ord($this->data[$spos + 1]) << 8;
+            $length                              = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+            $spos                                += 4;
+
+            //echo "Code=".base_convert($code,10,16)." $code\n";
+            $this->multiplier = 1; // need for format with %
+            switch ($t_code) {
+                case self::TYPE_DIMENSION:
+                    //echo 'Type_DIMENSION ';
+                    if (!isset($this->numRows)) {
+                        if (($length === 10) || ($version === self::BIFF7)) {
+                            $this->sheets[$this->sn]['numRows'] = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                            $this->sheets[$this->sn]['numCols'] = ord($this->data[$spos + 6]) | ord($this->data[$spos + 7]) << 8;
+                        } else {
+                            $this->sheets[$this->sn]['numRows'] = ord($this->data[$spos + 4]) | ord($this->data[$spos + 5]) << 8;
+                            $this->sheets[$this->sn]['numCols'] = ord($this->data[$spos + 10]) | ord($this->data[$spos + 11]) << 8;
+                        }
+                    }
+                    //echo 'numRows '.$this->numRows.' '.$this->numCols."\n";
+                    break;
+                case self::TYPE_MERGEDCELLS:
+                    $cellRanges = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    for ($i = 0; $i < $cellRanges; $i++) {
+                        $fr = ord($this->data[$spos + 8 * $i + 2]) | ord($this->data[$spos + 8 * $i + 3]) << 8;
+                        $lr = ord($this->data[$spos + 8 * $i + 4]) | ord($this->data[$spos + 8 * $i + 5]) << 8;
+                        $fc = ord($this->data[$spos + 8 * $i + 6]) | ord($this->data[$spos + 8 * $i + 7]) << 8;
+                        $lc = ord($this->data[$spos + 8 * $i + 8]) | ord($this->data[$spos + 8 * $i + 9]) << 8;
+                        //$this->sheets[$this->sn]['mergedCells'][] = array($fr + 1, $fc + 1, $lr + 1, $lc + 1);
+                        if ($lr - $fr > 0) {
+                            $this->sheets[$this->sn]['cellsInfo'][$fr + 1][$fc + 1]['rowspan'] = $lr - $fr + 1;
+                        }
+                        if ($lc - $fc > 0) {
+                            $this->sheets[$this->sn]['cellsInfo'][$fr + 1][$fc + 1]['colspan'] = $lc - $fc + 1;
+                        }
+                    }
+                    //echo "Merged Cells $cellRanges $lr $fr $lc $fc\n";
+                    break;
+                case self::TYPE_RK:
+                case self::TYPE_RK2:
+                    //echo 'self::TYPE_RK'."\n";
+                    $row      = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    $column   = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                    $rknum    = $this->_getInt4d($spos + 6);
+                    $numValue = $this->_getIEEE754($rknum);
+                    //echo $numValue." ";
+                    $t_alias = 'n';
+                    if ($this->isDate($spos)) {
+                        [$string, $raw] = $this->createDate((int) $numValue);
+                        $t_alias = 'd';
+                    } else {
+                        $raw = $numValue;
+                        if (isset($this->columnsFormat[$column + 1])) {
+                            $this->curFormat = $this->columnsFormat[$column + 1];
+                        }
+                        $string = sprintf($this->curFormat, $numValue * $this->multiplier);
+                        //$this->addcell(RKRecord($r));
+                    }
+                    $this->addCell($row, $column, $string, $raw, $t_code, $t_alias);
+                    //echo "Type_RK $row $column $string $raw {$this->curformat}\n";
+                    break;
+                case self::TYPE_LABELSST:
+                    $row    = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    $column = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                    //                  $xfindex = ord($this->_data[$spos + 4]) | ord($this->_data[$spos + 5]) << 8;
+                    $index = $this->_getInt4d($spos + 6);
+                    //var_dump($this->sst);
+                    $this->addCell($row, $column, $this->sst[$index], $index, $t_code, 's');
+                    //echo "LabelSST $row $column $string\n";
+                    break;
+                case self::TYPE_MULRK:
+                    $row      = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    $colFirst = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                    $colLast  = ord($this->data[$spos + $length - 2]) | ord($this->data[$spos + $length - 1]) << 8;
+                    $columns  = $colLast - $colFirst + 1;
+                    $tmppos   = $spos + 4;
+                    $t_alias = 'n';
+                    for ($i = 0; $i < $columns; $i++) {
+                        $numValue = $this->_getIEEE754($this->_getInt4d($tmppos + 2));
+                        if ($this->isDate($tmppos - 4)) {
+                            [$string, $raw] = $this->createDate((int) $numValue);
+                            $t_alias = 'd';
+                        } else {
+                            $raw = $numValue;
+                            if (isset($this->columnsFormat[$colFirst + $i + 1])) {
+                                $this->curFormat = $this->columnsFormat[$colFirst + $i + 1];
+                            }
+                            $string = sprintf($this->curFormat, $numValue * $this->multiplier);
+                        }
+                        //$rec['rknumbers'][$i]['xfindex'] = ord($rec['data'][$pos]) | ord($rec['data'][$pos+1]) << 8;
+                        $tmppos += 6;
+                        $this->addCell($row, $colFirst + $i, $string, $raw, $t_code, $t_alias);
+                        //echo "MULRK $row ".($colFirst + $i)." $string\n";
+                    }
+                    //MulRKRecord($r);
+                    // Get the individual cell records from the multiple record
+                    //$num = ;
+
+                    break;
+                case self::TYPE_NUMBER:
+                    $row    = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    $column = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                    $tmp    = unpack('ddouble', substr($this->data, $spos + 6, 8)); // It machine machine dependent
+                    $t_alias = 'n';
+                    if ($this->isDate($spos)) {
+                        [$string, $raw] = $this->createDate((int) $tmp['double']);
+                        $t_alias = 'd';
+                        //   $this->addcell(DateRecord($r, 1));
+                    } else {
+                        //$raw = $tmp[''];
+                        if (isset($this->columnsFormat[$column + 1])) {
+                            $this->curFormat = $this->columnsFormat[$column + 1];
+                        }
+                        $raw    = $this->createNumber($spos);
+                        $string = sprintf($this->curFormat, $raw * $this->multiplier);
+
+                        //   $this->addcell(NumberRecord($r));
+                    }
+                    $this->addCell($row, $column, $string, $raw, $t_code, $t_alias);
+                    //echo "Number $row $column $string\n";
+                    break;
+                case self::TYPE_FORMULA:
+                case self::TYPE_FORMULA2:
+                    $row    = ord($this->data[$spos]) | ord($this->data[$spos + 1]) << 8;
+                    $column = ord($this->data[$spos + 2]) | ord($this->data[$spos + 3]) << 8;
+                    /*
+    $byte6 = ord($this->_data[$spos + 6]);
+    $byte12 = ord($this->_data[$spos + 12]);
+    $byte13 = ord($this->_data[$spos + 13]);
+
+    if ( $byte6 === 0 && $byte12 === 255 && $byte13 === 255 ) {
+    //String formula. Result follows in a STRING record
+    //echo "FORMULA $row $column Formula with a string<br>\n";
+    } else if ($byte6 === 1 && $byte12 === 255 && $byte13 === 255 ) {
+    //Boolean formula. Result is in +2; 0=false,1=true
+    } else if ($byte6 === 2 && $byte12 === 255 && $byte13 === 255) {
+    //Error formula. Error code is in +2;
+    } else if ( $byte6 === 3 && $byte12 === 255 && $byte13 === 255) {
+    //Formula result is a null string.
+    */
+                    if (! (ord($this->data[$spos + 6]) < 4 && ord($this->data[$spos + 12]) === 255 && ord($this->data[$spos + 13]) === 255)) {
+                        // result is a number, so first 14 bytes are just like a _NUMBER record
+                        $tmp = unpack('ddouble', substr($this->data, $spos + 6, 8)); // It machine machine dependent
+                        if ($this->isDate($spos)) {
+                            [$string, $raw] = $this->createDate((int) $tmp['double']);
+                            //   $this->addcell(DateRecord($r, 1));
+                        } else {
+                            //$raw = $tmp[''];
+                            if (isset($this->columnsFormat[$column + 1])) {
+                                $this->curFormat = $this->columnsFormat[$column + 1];
+                            }
+                            $raw    = $this->createNumber($spos);
+                            $string = sprintf($this->curFormat, $raw * $this->multiplier);
+
+                            //   $this->addcell(NumberRecord($r));
+                        }
+                        $this->addCell($row, $column, $string, $raw, $t_code, 'f');
+                        //echo "Number $row $column $string\n";
+                    }
+                    break;
+                case self::TYPE_BOOLERR:
+                    $row    = $this->_getInt2d($spos);
+                    $column = $this->_getInt2d($spos + 2);
+                    $string = ord($this->data[$spos + 6]);
+                    $this->addCell($row, $column, $string, $string, $t_code, 'b');
+                    //echo 'Type_BOOLERR '."\n";
+                    break;
+                case self::TYPE_ROW:
+                case self::TYPE_DBCELL:
+                case self::TYPE_MULBLANK:
+                    break;
+                case self::TYPE_LABEL:
+                    $row    = $this->_getInt2d($spos);
+                    $column = $this->_getInt2d($spos);
+                    $string = substr($this->data, $spos + 8, ord($this->data[$spos + 6]) | ord($this->data[$spos + 7]) << 8);
+                    $this->addCell($row, $column, $string, '', $t_code, 'inlineStr');
+
+                    // $this->addcell(LabelRecord($r));
+                    break;
+
+                case self::TYPE_EOF:
+                    $cont = false;
+                    break;
+                default:
+                    //echo ' unknown :'.base_convert($r['code'],10,16)."\n";
+                    break;
+            }
+            $spos += $length;
+        }
+
+        if ($this->sheets[$this->sn]['numRows'] === 0) {
+            $this->sheets[$this->sn]['numRows'] = $this->sheets[$this->sn]['maxrow'];
+        }
+        if ($this->sheets[$this->sn]['numCols'] === 0) {
+            $this->sheets[$this->sn]['numCols'] = $this->sheets[$this->sn]['maxcol'];
+        }
+
+        return true;
+    }
+
+    //}}}
+    //{{{ createDate()
+
+    protected function _getIEEE754($rknum)
+    {
+        if (($rknum & 0x02) !== 0) {
+            $value = $rknum >> 2;
+        } else {
+            //mmp
+            // first comment out the previously existing 7 lines of code here
+            //                $tmp = unpack("d", pack("VV", 0, ($rknum & 0xfffffffc)));
+            //                //$value = $tmp[''];
+            //                if (array_key_exists(1, $tmp)) {
+            //                    $value = $tmp[1];
+            //                } else {
+            //                    $value = $tmp[''];
+            //                }
+            // I got my info on IEEE754 encoding from
+            // http://research.microsoft.com/~hollasch/cgindex/coding/ieeefloat.html
+            // The RK format calls for using only the most significant 30 bits of the
+            // 64 bit floating point value. The other 34 bits are assumed to be 0
+            // So, we use the upper 30 bits of $rknum as follows...
+            $sign     = ($rknum & 0x80000000) >> 31;
+            $exp      = ($rknum & 0x7ff00000) >> 20;
+            $mantissa = (0x100000 | ($rknum & 0x000ffffc));
+            $value    = $mantissa / (2 ** (20 - ($exp - 1023)));
+            if ($sign) {
+                $value = -1 * $value;
+            }
+            //end of changes by mmp
+        }
+
+        if (($rknum & 0x01) !== 0) {
+            $value /= 100;
+        }
+
+        return $value;
+    }
+
+    protected function isDate($spos): bool
+    {
+        //$xfindex = GetInt2d(, 4);
+        $xfindex = ord($this->data[$spos + 4]) | ord($this->data[$spos + 5]) << 8;
+        //      echo 'check is date '.$xfindex.' '.$this->formatRecords['xfrecords'][$xfindex]['type']." ".$this->formatRecords['xfrecords'][ $xfindex ]['format']."\n";
+
+
+
+        if ($this->formatRecords['xfrecords'][$xfindex]['type'] === 'date') {
+            $this->curFormat = $this->formatRecords['xfrecords'][$xfindex]['format'];
+
+            return true;
+        }
+
+        if ($this->formatRecords['xfrecords'][$xfindex]['type'] === 'number') {
+            $this->curFormat = $this->formatRecords['xfrecords'][$xfindex]['format'];
+            if (strpos($this->curFormat, '%%') !== false) {
+                $this->multiplier = 100;
+            }
+        } else {
+            $this->curFormat = $this->defaultFormat;
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert the raw Excel date into a human readable format
+     *
+     * Dates in Excel are stored as number of seconds from an epoch.  On
+     * Windows, the epoch is 30/12/1899 and on Mac it's 01/01/1904
+     *
+     * @param integer $timevalue The raw Excel value to convert
+     *
+     * @return array First element is the converted date, the second element is number a unix timestamp
+     */
+    public function createDate(int $timevalue): array
+    {
+        //      $offset = ($timeoffset===null)? date('Z') : $timeoffset * 3600;
+        if ($timevalue > 1) {
+            $timevalue -= ($this->nineteenFour ? 24107 : 25569);
+        }
+        $ts = round($timevalue * 24 * 3600);
+        $string = $this->datetimeFormat ? gmdate($this->datetimeFormat, $ts) : gmdate($this->curFormat, $ts);
+        return array($string, $ts);
+    }
+
+    protected function addCell($row, $col, $string, $raw = '', $type_code = 0, $type_alias = ''): void
+    {
+        //echo "ADD cel $row-$col $string\n";
+        $this->sheets[$this->sn]['maxrow'] = max($this->sheets[$this->sn]['maxrow'], $row);
+        $this->sheets[$this->sn]['maxcol'] = max($this->sheets[$this->sn]['maxcol'], $col);
+        $this->sheets[$this->sn]['cells'][$row][$col] = $string;
+        if ($raw) {
+            $this->sheets[$this->sn]['cellsInfo'][$row][$col]['raw'] = $raw;
+        }
+        if ($type_code) {
+            $this->sheets[$this->sn]['cellsInfo'][$row][$col]['type'] = $type_code;
+            $this->sheets[$this->sn]['cellsInfo'][$row][$col]['t'] = $type_alias;
+        }
+    }
+
+    protected function createNumber($spos)
+    {
+        $rknumhigh = $this->_getInt4d($spos + 10);
+        $rknumlow  = $this->_getInt4d($spos + 6);
+        //for ($i=0; $i<8; $i++) { echo ord($this->_data[$i+$spos+6]) . " "; } echo "<br>";
+        $sign         = ($rknumhigh & 0x80000000) >> 31;
+        $exp          = ($rknumhigh & 0x7ff00000) >> 20;
+        $mantissa     = (0x100000 | ($rknumhigh & 0x000fffff));
+        $mantissalow1 = ($rknumlow & 0x80000000) >> 31;
+        $mantissalow2 = ($rknumlow & 0x7fffffff);
+        $value        = $mantissa / (2 ** (20 - ($exp - 1023)));
+        if ($mantissalow1 !== 0) {
+            $value += 1 / (2 ** (21 - ($exp - 1023)));
+        }
+        $value += $mantissalow2 / (2 ** (52 - ($exp - 1023)));
+        //echo "Sign = $sign, Exp = $exp, mantissahighx = $mantissa, mantissalow1 = $mantissalow1, mantissalow2 = $mantissalow2<br>\n";
+        if ($sign) {
+            $value = -1 * $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Set the encoding method
+     *
+     * @param string $encoding Encoding to use
+     *
+     * @access public
+     */
+    public function setOutputEncoding(string $encoding): ImportXLS
+    {
+        $this->defaultEncoding = $encoding;
+        return $this;
+    }
+
+
+    /**
+     * Set the default number format, ex. "%.2f"
+     *
+     * @access public
+     *
+     * @param string $sFormat Default  format
+     */
+    public function setDefaultFormat(string $sFormat): ImportXLS
+    {
+        $this->defaultFormat = $sFormat;
+        return $this;
+    }
+
+    /**
+     * Force a column to use a certain format
+     *
+     * @access public
+     *
+     * @param integer $column Column number
+     * @param string $sFormat Format
+     */
+    public function setColumnFormat(int $column, string $sFormat): ImportXLS
+    {
+        $this->columnsFormat[$column] = $sFormat;
+        return $this;
+    }
+}
+
+/******
+ *  Import CSV Files
+ */
+class ImportCSV
+{
+
+    protected $_delimiter;
+    protected $_enclosure;
+    protected $_linebreak;
+    protected $_csv = '';
+
+    public static function parse($filename_or_data, $is_data, $delimiter = 'auto', $enclosure = 'auto', $linebreak = 'auto')
+    {
+        $csv = new static($delimiter, $enclosure, $linebreak);
+        $csv->_csv = $is_data ? $filename_or_data : file_get_contents($filename_or_data);
+        return $csv;
+    }
+    public static function parseFile($filename, $delimiter = 'auto', $enclosure = 'auto', $linebreak = 'auto')
+    {
+        return static::parse($filename, false, $delimiter, $enclosure, $linebreak);
+    }
+    public static function parseData($csv_content, $delimiter = 'auto', $enclosure = 'auto', $linebreak = 'auto')
+    {
+        return static::parse($csv_content, true, $delimiter, $enclosure, $linebreak);
+    }
+
+    public static function import($filename_or_data, $is_data = false, $delimiter = 'auto', $enclosure = 'auto', $linebreak = 'auto')
+    {
+        return (new static($delimiter, $enclosure, $linebreak))->toArray($filename_or_data, $is_data);
+    }
+    public static function export($items, $delimiter = ',', $enclosure = '"', $linebreak = "\r\n")
+    {
+        return (new static($delimiter, $enclosure, $linebreak))->fromArray($items);
+    }
+    public function __construct($delimiter = 'auto', $enclosure = 'auto', $linebreak = 'auto')
+    {
+        $this->_delimiter = $delimiter;
+        $this->_enclosure = $enclosure;
+        $this->_linebreak = $linebreak;
+    }
+    public function delimiter($set = false)
+    {
+        if ($set !== false) {
+            return $this->_delimiter = $set;
+        }
+        if ($this->_delimiter === 'auto') {
+            // detect delimiter
+            if (($p = strpos($this->_csv, $this->_enclosure . ',')) > 0
+                && ($this->_csv[$p-1] !== $this->_enclosure)
+            ) {
+                $this->_delimiter = ',';
+            } elseif (($p = strpos($this->_csv, $this->_enclosure."\t")) > 0
+                && ($this->_csv[$p-1] !== $this->_enclosure)
+            ) {
+                $this->_delimiter = "\t";
+            } elseif (($p = strpos($this->_csv, $this->_enclosure . ';')) > 0
+                && ($this->_csv[$p-1] !== $this->_enclosure)
+            ) {
+                $this->_delimiter = ';';
+            } elseif (strpos($this->_csv, ',') !== false) {
+                $this->_delimiter = ',';
+            } elseif (strpos($this->_csv, "\t") !== false) {
+                $this->_delimiter = "\t";
+            } elseif (strpos($this->_csv, ';') !== false) {
+                $this->_delimiter = ';';
+            } else {
+                $this->_delimiter = ',';
+            }
+        }
+        return $this->_delimiter;
+    }
+    public function enclosure($set = false)
+    {
+        if ($set !== false) {
+            return $this->_enclosure = $set;
+        }
+        if ($this->_enclosure === 'auto') {
+            // detect quot
+            if (strpos($this->_csv, '"') !== false) {
+                $this->_enclosure = '"';
+            } else if (strpos($this->_csv, "'") !== false) {
+                $this->_enclosure = "'";
+            } else {
+                $this->_enclosure = '"';
+            }
+        }
+        return $this->_enclosure;
+    }
+    public function linebreak($set = false)
+    {
+        if ($set !== false) {
+            return $this->_linebreak = $set;
+        }
+        if ($this->_linebreak === 'auto') {
+            if (strpos($this->_csv, "\r\n") !== false) {
+                $this->_linebreak = "\r\n";
+            } else if (strpos($this->_csv, "\n") !== false) {
+                $this->_linebreak = "\n";
+            } else if (strpos($this->_csv, "\r") !== false) {
+                $this->_linebreak = "\r";
+            } else {
+                $this->_linebreak = "\r\n";
+            }
+        }
+        return $this->_linebreak;
+    }
+    public function rows()
+    {
+        return $this->toArray();
+    }
+    public function toArray($filename = null, $is_csv_content = false)
+    {
+
+        if ($filename) {
+            $this->_csv = $is_csv_content ? $filename : file_get_contents($filename);
+        }
+
+        $CSV_LINEBREAK = $this->linebreak();
+        $CSV_ENCLOSURE = $this->enclosure();
+        $CSV_DELIMITER = $this->delimiter();
+
+
+        $r = array();
+        $cnt = strlen($this->_csv);
+        
+        $esc = false;
+        $i = $k = $n = 0;
+        $r[$k][$n] = '';
+        
+        while ($i < $cnt) {
+            $ch = $this->_csv[$i];
+            $chch = ($i < $cnt-1) ? $ch.$this->_csv[$i+1] : $ch;
+
+            if ($ch === $CSV_LINEBREAK) {
+                if ($esc) {
+                    $r[$k][$n] .= $ch;
+                } else {
+                    $k++;
+                    $n = 0;
+                    $esc = false;
+                    $r[$k][$n] = '';
+                }
+            } else if ($chch === $CSV_LINEBREAK) {
+                if ($esc) {
+                    $r[$k][$n] .= $chch;
+                } else {
+                    $k++;
+                    $n = 0;
+                    $esc = false;
+                    $r[$k][$n] = '';
+                }
+                $i++;
+            } else if ($ch === $CSV_DELIMITER) {
+                if ($esc) {
+                    $r[$k][$n] .= $ch;
+                } else {
+                    $n++;
+                    $r[$k][$n] = '';
+                    $esc = false;
+                }
+            } else if ($chch === $CSV_ENCLOSURE.$CSV_ENCLOSURE && $esc) {
+                $r[$k][$n] .= $CSV_ENCLOSURE;
+                $i++;
+            } elseif ($ch === $CSV_ENCLOSURE) {
+                $esc = !$esc;
+            } else {
+                $r[$k][$n] .= $ch;
+            }
+            $i++;
+        }
+        return $r;
+    }
+    public function fromArray($items)
+    {
+        
+        if (!is_array($items)) {
+            trigger_error('CSV::export array required', E_USER_WARNING);
+            return false;
+        }
+        
+        $CSV_DELIMITER = $this->delimiter();
+        $CSV_ENCLOSURE = $this->enclosure();
+        $CSV_LINEBREAK = $this->linebreak();
+        
+        $result = '';
+        foreach ($items as $i) {
+            $line = '';
+            
+            foreach ($i as $v) {
+                if (is_string($v) && $v !== '') {
+                    if (strpos($v, $CSV_ENCLOSURE) !== false) {
+                        $v = str_replace($CSV_ENCLOSURE, $CSV_ENCLOSURE . $CSV_ENCLOSURE, $v);
+                    }
+
+                    if ((strpos($v, $CSV_DELIMITER) !== false)
+                        || (strpos($v, $CSV_ENCLOSURE) !== false)
+                        || (strpos($v, $CSV_LINEBREAK) !== false)) {
+                        $v = $CSV_ENCLOSURE . $v . $CSV_ENCLOSURE;
+                    }
+                }
+                $line .= $line ? $CSV_DELIMITER . $v : $v;
+            }
+            $result .= $result ? $CSV_LINEBREAK . $line : $line;
+        }
+        
+        return $result;
+    }
+}
+
+/********
+ *  Export XLSX Files
+ */
+class ExportXLSX
+{
+    public $curSheet;
+    protected $defaultFont;
+    protected $defaultFontSize;
+    protected $rtl;
+    protected $sheets;
+    protected $template;
+    protected $NF; // numFmts
+    protected $NF_KEYS;
+    protected $XF; // cellXfs
+    protected $XF_KEYS;
+    protected $BR_STYLE;
+    protected $SI; // shared strings
+    protected $SI_KEYS;
+    protected $extLinkId;
+
+    protected $title;
+    protected $subject;
+    protected $author;
+    protected $company;
+    protected $manager;
+    protected $description;
+    protected $application;
+    protected $keywords;
+    protected $category;
+    protected $lastModifiedBy;
+    const N_NORMAL = 0; // General
+    const N_INT = 1; // 0
+    const N_DEC = 2; // 0.00
+    const N_PERCENT_INT = 9; // 0%
+    const N_PRECENT_DEC = 10; // 0.00%
+    const N_DATE = 14; // mm-dd-yy
+    const N_TIME = 20; // h:mm
+    const N_RUB = 164;
+    const N_DOLLAR = 165;
+    const N_EURO = 166;
+    const N_DATETIME = 22; // m/d/yy h:mm
+    const F_NORMAL = 0;
+    const F_HYPERLINK = 1;
+    const F_BOLD = 2;
+    const F_ITALIC = 4;
+    const F_UNDERLINE = 8;
+    const F_STRIKE = 16;
+    const F_COLOR = 32;
+    const FL_NONE = 0; // none
+    const FL_SOLID = 1; // solid
+    const FL_MEDIUM_GRAY = 2; // mediumGray
+    const FL_DARK_GRAY = 4; // darkGray
+    const FL_LIGHT_GRAY = 8; // lightGray
+    const FL_GRAY_125 = 16; // gray125
+    const FL_COLOR = 32;
+    const A_DEFAULT = 0;
+    const A_LEFT = 1;
+    const A_RIGHT = 2;
+    const A_CENTER = 4;
+    const A_TOP = 8;
+    const A_MIDDLE = 16;
+    const A_BOTTOM = 32;
+    const A_WRAPTEXT = 64;
+    const B_NONE = 0;
+    const B_THIN = 1;
+    const B_MEDIUM = 2;
+    //const
+    const B_DASHED = 3;
+    const B_DOTTED = 4;
+    const B_THICK = 5;
+    const B_DOUBLE = 6;
+    const B_HAIR = 7;
+    const B_MEDIUM_DASHED = 8;
+    const B_DASH_DOT = 9;
+    const B_MEDIUM_DASH_DOT = 10;
+    const B_DASH_DOT_DOT = 11;
+    const B_MEDIUM_DASH_DOT_DOT = 12;
+    const B_SLANT_DASH_DOT = 13;
+
+    public function __construct()
+    {
+        $this->subject = '';
+        $this->title = '';
+        $this->author = 'CodexWorld Dev <codexworld.com@gmail.com>';
+        $this->company = 'CodexWorld Dev <codexworld.com@gmail.com>';
+        $this->manager = 'CodexWorld Dev <codexworld.com@gmail.com>';
+        $this->description = '';
+        $this->keywords = '';
+        $this->category = '';
+        $this->lastModifiedBy = 'CodexWorld Dev <codexworld.com@gmail.com>';
+        $this->application = __CLASS__;
+
+        $this->curSheet = -1;
+        $this->defaultFont = 'Calibri';
+        $this->defaultFontSize = 10;
+        $this->rtl = false;
+        $this->sheets = [['name' => 'Sheet1', 'rows' => [], 'hyperlinks' => [], 'mergecells' => [], 'colwidth' => [], 'autofilter' => '']];
+        $this->extLinkId = 0;
+        $this->SI = [];        // sharedStrings index
+        $this->SI_KEYS = []; //  & keys
+
+        $this->NF = [
+            self::N_RUB => '#,##0.00\ "₽"',
+            self::N_DOLLAR => '[$$-1]#,##0.00',
+            self::N_EURO => '#,##0.00\ [$€-1]'
+        ];
+        $this->NF_KEYS = array_flip($this->NF);
+
+        $this->BR_STYLE = [
+            self::B_NONE => 'none',
+            self::B_THIN => 'thin',
+            self::B_MEDIUM => 'medium',
+            self::B_DASHED => 'dashed',
+            self::B_DOTTED => 'dotted',
+            self::B_THICK => 'thick',
+            self::B_DOUBLE => 'double',
+            self::B_HAIR => 'hair',
+            self::B_MEDIUM_DASHED => 'mediumDashed',
+            self::B_DASH_DOT => 'dashDot',
+            self::B_MEDIUM_DASH_DOT => 'mediumDashDot',
+            self::B_DASH_DOT_DOT => 'dashDotDot',
+            self::B_MEDIUM_DASH_DOT_DOT => 'mediumDashDotDot',
+            self::B_SLANT_DASH_DOT => 'slantDashDot'
+        ];
+
+        $this->XF = [  // styles 0 - num fmt, 1 - align, 2 - font, 3 - fill, 4 - font color, 5 - bgcolor, 6 - border, 7 - font size
+            [self::N_NORMAL, self::A_DEFAULT, self::F_NORMAL, self::FL_NONE, 0, 0, '', 0],
+            [self::N_NORMAL, self::A_DEFAULT, self::F_NORMAL, self::FL_GRAY_125, 0, 0, '', 0], // hack
+        ];
+        $this->XF_KEYS[implode('-', $this->XF[0])] = 0; // & keys
+        $this->XF_KEYS[implode('-', $this->XF[1])] = 1;
+        $this->template = [
+            '_rels/.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+            <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+            <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+            </Relationships>',
+                        'docProps/app.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+            <TotalTime>0</TotalTime>
+            <Application>{APP}</Application>
+            <Company>{COMPANY}</Company>
+            <Manager>{MANAGER}</Manager>
+            </Properties>',
+                        'docProps/core.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <dcterms:created xsi:type="dcterms:W3CDTF">{DATE}</dcterms:created>
+                <dc:title>{TITLE}</dc:title>
+                <dc:subject>{SUBJECT}</dc:subject>
+                <dc:creator>{AUTHOR}</dc:creator>
+                <cp:lastModifiedBy>{LAST_MODIFY_BY}</cp:lastModifiedBy>
+                <cp:keywords>{KEYWORD}</cp:keywords>
+                <dc:description>{DESCRIPTION}</dc:description>
+                <cp:category>{CATEGORY}</cp:category>
+                <dc:language>en-US</dc:language>
+            <dcterms:modified xsi:type="dcterms:W3CDTF">{DATE}</dcterms:modified>
+            <cp:revision>1</cp:revision>
+            </cp:coreProperties>',
+                        'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            {RELS}
+            </Relationships>',
+                        'xl/worksheets/sheet1.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            <dimension ref="{REF}"/>
+            {SHEETVIEWS}
+            {COLS}
+            <sheetData>{ROWS}</sheetData>
+            {AUTOFILTER}{MERGECELLS}{HYPERLINKS}
+            </worksheet>',
+                        'xl/worksheets/_rels/sheet1.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{HYPERLINKS}</Relationships>',
+                        'xl/sharedStrings.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="{CNT}" uniqueCount="{CNT}">{STRINGS}</sst>',
+                        'xl/styles.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+            {NUMFMTS}
+            {FONTS}
+            {FILLS}
+            {BORDERS}
+            <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" /></cellStyleXfs>
+            {XF}
+            <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+            </styleSheet>',
+                        'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            <fileVersion appName="{APP}"/>
+            <sheets>
+            {SHEETS}
+            </sheets>
+            </workbook>',
+                        '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+            <Override PartName="/rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+            <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+            <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+            <Override PartName="/xl/_rels/workbook.xml.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+            <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+            <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+            <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+            {TYPES}
+            </Types>',
+        ];
+    }
+
+    public static function fromArray(array $rows, $sheetName = null)
+    {
+        return (new static())->addSheet($rows, $sheetName);
+    }
+
+    public function addSheet(array $rows, $name = null)
+    {
+        $this->curSheet++;
+        if ($name === null) { // autogenerated sheet names
+            $name = 'Sheet' . ($this->curSheet + 1);
+        } else {
+            $name = mb_substr($name, 0, 31);
+            $names = [];
+            foreach ($this->sheets as $sh) {
+                $names[mb_strtoupper($sh['name'])] = 1;
+            }
+            for ($i = 0; $i < 100; $i++) {
+                $postfix = ' (' . $i . ')';
+                $new_name = ($i === 0) ? $name : $name . $postfix;
+                if (mb_strlen($new_name) > 31) {
+                    $new_name = mb_substr($name, 0, 31 - mb_strlen($postfix)) . $postfix;
+                }
+                $NEW_NAME = mb_strtoupper($new_name);
+                if (!isset($names[$NEW_NAME])) {
+                    $name = $new_name;
+                    break;
+                }
+            }
+        }
+        $this->sheets[$this->curSheet] = ['name' => $name, 'hyperlinks' => [], 'mergecells' => [], 'colwidth' => [], 'autofilter' => '', 'frozen' => ''];
+        if (isset($rows[0]) && is_array($rows[0])) {
+            $this->sheets[$this->curSheet]['rows'] = $rows;
+        } else {
+            $this->sheets[$this->curSheet]['rows'] = [];
+        }
+        return $this;
+    }
+
+    public function __toString()
+    {
+        $fh = fopen('php://memory', 'wb');
+        if (!$fh) {
+            return '';
+        }
+        if (!$this->_write($fh)) {
+            fclose($fh);
+            return '';
+        }
+        $size = ftell($fh);
+        fseek($fh, 0);
+        return (string)fread($fh, $size);
+    }
+
+    public function saveAs($filename)
+    {
+        $fh = fopen($filename, 'wb');
+        if (!$fh) {
+            return false;
+        }
+        if (!$this->_write($fh)) {
+            fclose($fh);
+            return false;
+        }
+        fclose($fh);
+        return true;
+    }
+
+    public function download()
+    {
+        return $this->downloadAs(gmdate('YmdHi') . '.xlsx');
+    }
+
+    public function downloadAs($filename)
+    {
+        $fh = fopen('php://memory', 'wb');
+        if (!$fh) {
+            return false;
+        }
+        if (!$this->_write($fh)) {
+            fclose($fh);
+            return false;
+        }
+        $size = ftell($fh);
+        header('Content-type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s \G\M\T', time()));
+        header('Content-Length: ' . $size);
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        fseek($fh, 0);
+        fpassthru($fh);
+        fclose($fh);
+        return true;
+    }
+
+    protected function _write($fh)
+    {
+        $dirSignatureE = "\x50\x4b\x05\x06"; // end of central dir signature
+        $zipComments = 'Generated by ' . __CLASS__ . ' PHP class, thanks codexworld.com@gmail.com';
+        if (!$fh) {
+            return false;
+        }
+        $cdrec = '';    // central directory content
+        $entries = 0;    // number of zipped files
+        $cnt_sheets = count($this->sheets);
+        foreach ($this->template as $cfilename => $template) {
+            if ($cfilename === 'xl/_rels/workbook.xml.rels') {
+                $s = '';
+                for ($i = 0; $i < $cnt_sheets; $i++) {
+                    $s .= '<Relationship Id="rId' . ($i + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"' .
+                        ' Target="worksheets/sheet' . ($i + 1) . ".xml\"/>\r\n";
+                }
+                $s .= '<Relationship Id="rId' . ($i + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' . "\r\n";
+                $s .= '<Relationship Id="rId' . ($i + 2) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>';
+
+                $template = str_replace('{RELS}', $s, $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'xl/workbook.xml') {
+                $s = '';
+                foreach ($this->sheets as $k => $v) {
+                    $s .= '<sheet name="' . $this->esc($v['name']) . '" sheetId="' . ($k + 1) . '" r:id="rId' . ($k + 1) . '"/>';
+                }
+                $search = ['{SHEETS}', '{APP}'];
+                $replace = [$s, $this->esc($this->application)];
+                $template = str_replace($search, $replace, $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'docProps/app.xml') {
+                $search = ['{APP}', '{COMPANY}', '{MANAGER}'];
+                $replace = [$this->esc($this->application), $this->esc($this->company), $this->esc($this->manager)];
+                $template = str_replace($search, $replace, $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'docProps/core.xml') {
+                $search = ['{DATE}', '{AUTHOR}', '{TITLE}', '{SUBJECT}', '{KEYWORD}', '{DESCRIPTION}', '{CATEGORY}', '{LAST_MODIFY_BY}'];
+                $replace = [gmdate('Y-m-d\TH:i:s\Z'), $this->esc($this->author), $this->esc($this->title), $this->esc($this->subject), $this->esc($this->keywords), $this->esc($this->description), $this->esc($this->category), $this->esc($this->lastModifiedBy)];
+                $template = str_replace($search, $replace, $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'xl/sharedStrings.xml') {
+                if (!count($this->SI)) {
+                    $this->SI[] = 'No Data';
+                }
+                $si_cnt = count($this->SI);
+                $si = '<si><t>' . implode("</t></si>\r\n<si><t>", $this->SI) . '</t></si>';
+                $template = str_replace(['{CNT}', '{STRINGS}'], [$si_cnt, $si], $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'xl/worksheets/sheet1.xml') {
+                foreach ($this->sheets as $k => $v) {
+                    $filename = 'xl/worksheets/sheet' . ($k + 1) . '.xml';
+                    $xml = $this->_sheetToXML($k, $template);
+                    $this->_writeEntry($fh, $cdrec, $filename, $xml);
+                    $entries++;
+                }
+                $xml = null;
+            } elseif ($cfilename === 'xl/worksheets/_rels/sheet1.xml.rels') {
+                foreach ($this->sheets as $k => $v) {
+                    if ($this->extLinkId) {
+                        $RH = [];
+                        $filename = 'xl/worksheets/_rels/sheet' . ($k + 1) . '.xml.rels';
+                        foreach ($v['hyperlinks'] as $h) {
+                            if ($h['ID']) {
+                                $RH[] = '<Relationship Id="' . $h['ID'] . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="' . $this->esc($h['H']) . '" TargetMode="External"/>';
+                            }
+                        }
+                        $xml = str_replace('{HYPERLINKS}', implode("\r\n", $RH), $template);
+                        $this->_writeEntry($fh, $cdrec, $filename, $xml);
+                        $entries++;
+                    }
+                }
+                $xml = null;
+            } elseif ($cfilename === '[Content_Types].xml') {
+                $TYPES = ['<Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'];
+                foreach ($this->sheets as $k => $v) {
+                    $TYPES[] = '<Override PartName="/xl/worksheets/sheet' . ($k + 1) . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+                    if ($this->extLinkId) {
+                        $TYPES[] = '<Override PartName="/xl/worksheets/_rels/sheet' . ($k + 1) . '.xml.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>';
+                    }
+                }
+                $template = str_replace('{TYPES}', implode("\r\n", $TYPES), $template);
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } elseif ($cfilename === 'xl/styles.xml') {
+                $NF = $XF = $FONTS = $F_KEYS = $FILLS = $FL_KEYS = [];
+                $BR = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+                $BR_KEYS = [0 => 0];
+                foreach ($this->NF as $k => $v) {
+                    $NF[] = '<numFmt numFmtId="' . $k . '" formatCode="' . htmlspecialchars($v, ENT_QUOTES) . '"/>';
+                }
+                foreach ($this->XF as $xf) {
+                    // 0 - num fmt, 1 - align, 2 - font, 3 - fill, 4 - font color, 5 - bgcolor, 6 - border, 7 - font size
+                    // fonts
+                    $F_KEY = $xf[2] . '-' . $xf[4] . '-' . $xf[7];
+                    if (isset($F_KEYS[$F_KEY])) {
+                        $F_ID = $F_KEYS[$F_KEY];
+                    } else {
+                        $F_ID = $F_KEYS[$F_KEY] = count($FONTS);
+                        $FONTS[] = '<font><name val="' . $this->defaultFont . '"/><family val="2"/>'
+                            . ($xf[7] ? '<sz val="' . $xf[7] . '"/>' : '<sz val="' . $this->defaultFontSize . '"/>')
+                            . ($xf[2] & self::F_BOLD ? '<b/>' : '')
+                            . ($xf[2] & self::F_ITALIC ? '<i/>' : '')
+                            . ($xf[2] & self::F_UNDERLINE ? '<u/>' : '')
+                            . ($xf[2] & self::F_STRIKE ? '<strike/>' : '')
+                            . ($xf[2] & self::F_HYPERLINK ? '<u/>' : '')
+                            . ($xf[2] & self::F_COLOR ? '<color rgb="' . $xf[4] . '"/>' : '')
+                            . '</font>';
+                    }
+                    // fills
+                    $FL_KEY = $xf[3] . '-' . $xf[5];
+                    if (isset($FL_KEYS[$FL_KEY])) {
+                        $FL_ID = $FL_KEYS[$FL_KEY];
+                    } else {
+                        $FL_ID = $FL_KEYS[$FL_KEY] = count($FILLS);
+                        $FILLS[] = '<fill><patternFill patternType="'
+                            . ($xf[3] === 0 ? 'none' : '')
+                            . ($xf[3] & self::FL_SOLID ? 'solid' : '')
+                            . ($xf[3] & self::FL_MEDIUM_GRAY ? 'mediumGray' : '')
+                            . ($xf[3] & self::FL_DARK_GRAY ? 'darkGray' : '')
+                            . ($xf[3] & self::FL_LIGHT_GRAY ? 'lightGray' : '')
+                            . ($xf[3] & self::FL_GRAY_125 ? 'gray125' : '')
+                            . '"'
+                            . ($xf[3] & self::FL_COLOR ? '><fgColor rgb="' . $xf[5] . '"/><bgColor indexed="64"/></patternFill>' : ' />')
+                            . '</fill>';
+                    }
+                    $align = '';
+                    if ($xf[1] & self::A_LEFT) {
+                        $align .= ' horizontal="left"';
+                    } elseif ($xf[1] & self::A_RIGHT) {
+                        $align .= ' horizontal="right"';
+                    } elseif ($xf[1] & self::A_CENTER) {
+                        $align .= ' horizontal="center"';
+                    }
+                    if ($xf[1] & self::A_TOP) {
+                        $align .= ' vertical="top"';
+                    } elseif ($xf[1] & self::A_MIDDLE) {
+                        $align .= ' vertical="center"';
+                    } elseif ($xf[1] & self::A_BOTTOM) {
+                        $align .= ' vertical="bottom"';
+                    }
+                    if ($xf[1] & self::A_WRAPTEXT) {
+                        $align .= ' wrapText="1"';
+                    }
+
+                    // border
+                    $BR_ID = 0;
+                    if ($xf[6] !== '') {
+                        $b = $xf[6];
+                        if (isset($BR_KEYS[$b])) {
+                            $BR_ID = $BR_KEYS[$b];
+                        } else {
+                            $BR_ID = count($BR_KEYS);
+                            $BR_KEYS[$b] = $BR_ID;
+                            $border = '<border>';
+                            $ba = explode(' ', $b);
+                            if (!isset($ba[1])) {
+                                $ba[] = $ba[0];
+                                $ba[] = $ba[0];
+                                $ba[] = $ba[0];
+                            }
+                            if (!isset($ba[4])) { // diagonal
+                                $ba[] = 'none';
+                            }
+                            $sides = ['left' => 3, 'right' => 1, 'top' => 0, 'bottom' => 2, 'diagonal' => 4];
+                            foreach ($sides as $side => $idx) {
+                                $s = 'thin';
+                                $c = '';
+                                $va = explode('#', $ba[$idx]);
+                                if (isset($va[1])) {
+                                    $s = $va[0] === '' ? 'thin' : $va[0];
+                                    $c = $va[1];
+                                } elseif (in_array($va[0], $this->BR_STYLE, true)) {
+                                    $s = $va[0];
+                                } else {
+                                    $c = $va[0];
+                                }
+                                if (strlen($c) === 6) {
+                                    $c = 'FF' . $c;
+                                }
+                                if ($s && $s !== 'none') {
+                                    $border .= '<' . $side . ' style="' . $s . '">'
+                                        . '<color ' . ($c === '' ? 'auto="1"' : 'rgb="' . $c . '"') . '/>'
+                                        . '</' . $side . '>';
+                                } else {
+                                    $border .= '<' . $side . '/>';
+                                }
+                            }
+                            $border .= '</border>';
+                            $BR[] = $border;
+                        }
+                    }
+                    $XF[] = '<xf numFmtId="' . $xf[0] . '" fontId="' . $F_ID . '" fillId="' . $FL_ID . '" borderId="' . $BR_ID . '" xfId="0"'
+                        . ($xf[0] > 0 ? ' applyNumberFormat="1"' : '')
+                        . ($F_ID > 0 ? ' applyFont="1"' : '')
+                        . ($FL_ID > 0 ? ' applyFill="1"' : '')
+                        . ($BR_ID > 0 ? ' applyBorder="1"' : '')
+                        . ($align ? ' applyAlignment="1"><alignment' . $align . '/></xf>' : '/>');
+                }
+                // wrap collections
+                array_unshift($NF, '<numFmts count="' . count($NF) . '">');
+                $NF[] = '</numFmts>';
+                array_unshift($XF, '<cellXfs count="' . count($XF) . '">');
+                $XF[] = '</cellXfs>';
+                array_unshift($FONTS, '<fonts count="' . count($FONTS) . '">');
+                $FONTS[] = '</fonts>';
+                array_unshift($FILLS, '<fills count="' . count($FILLS) . '">');
+                $FILLS[] = '</fills>';
+                array_unshift($BR, '<borders count="' . count($BR) . '">');
+                $BR[] = '</borders>';
+
+                $template = str_replace(
+                    ['{NUMFMTS}', '{FONTS}', '{XF}', '{FILLS}', '{BORDERS}'],
+                    [implode("\r\n", $NF), implode("\r\n", $FONTS), implode("\r\n", $XF), implode("\r\n", $FILLS), implode("\r\n", $BR)],
+                    $template
+                );
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            } else {
+                $this->_writeEntry($fh, $cdrec, $cfilename, $template);
+                $entries++;
+            }
+        }
+        $before_cd = ftell($fh);
+        fwrite($fh, $cdrec);
+        // end of central dir
+        fwrite($fh, $dirSignatureE);
+        fwrite($fh, pack('v', 0)); // number of this disk
+        fwrite($fh, pack('v', 0)); // number of the disk with the start of the central directory
+        fwrite($fh, pack('v', $entries)); // total # of entries "on this disk"
+        fwrite($fh, pack('v', $entries)); // total # of entries overall
+        fwrite($fh, pack('V', mb_strlen($cdrec, '8bit')));     // size of central dir
+        fwrite($fh, pack('V', $before_cd));         // offset to start of central dir
+        fwrite($fh, pack('v', mb_strlen($zipComments, '8bit'))); // .zip file comment length
+        fwrite($fh, $zipComments);
+
+        return true;
+    }
+
+    protected function _writeEntry($fh, &$cdrec, $cfilename, $data)
+    {
+        $zipSignature = "\x50\x4b\x03\x04"; // local file header signature
+        $dirSignature = "\x50\x4b\x01\x02"; // central dir header signature
+
+        $e = [];
+        $e['uncsize'] = mb_strlen($data, '8bit');
+        // if data to compress is too small, just store it
+        if ($e['uncsize'] < 256) {
+            $e['comsize'] = $e['uncsize'];
+            $e['vneeded'] = 10;
+            $e['cmethod'] = 0;
+            $zdata = $data;
+        } else { // otherwise, compress it
+            $zdata = gzcompress($data);
+            $zdata = substr(substr($zdata, 0, -4), 2); // fix crc bug (thanks to Eric Mueller)
+            $e['comsize'] = mb_strlen($zdata, '8bit');
+            $e['vneeded'] = 10;
+            $e['cmethod'] = 8;
+        }
+        $e['bitflag'] = 0;
+        $e['crc_32'] = crc32($data);
+
+        // Convert date and time to DOS Format, and set then
+        $lastmod_timeS = str_pad(decbin(date('s') >= 32 ? date('s') - 32 : date('s')), 5, '0', STR_PAD_LEFT);
+        $lastmod_timeM = str_pad(decbin(date('i')), 6, '0', STR_PAD_LEFT);
+        $lastmod_timeH = str_pad(decbin(date('H')), 5, '0', STR_PAD_LEFT);
+        $lastmod_dateD = str_pad(decbin(date('d')), 5, '0', STR_PAD_LEFT);
+        $lastmod_dateM = str_pad(decbin(date('m')), 4, '0', STR_PAD_LEFT);
+        $lastmod_dateY = str_pad(decbin(date('Y') - 1980), 7, '0', STR_PAD_LEFT);
+
+        $e['modtime'] = bindec("$lastmod_timeH$lastmod_timeM$lastmod_timeS");
+        $e['moddate'] = bindec("$lastmod_dateY$lastmod_dateM$lastmod_dateD");
+        $e['offset'] = ftell($fh);
+
+        fwrite($fh, $zipSignature);
+        fwrite($fh, pack('s', $e['vneeded'])); // version_needed
+        fwrite($fh, pack('s', $e['bitflag'])); // general_bit_flag
+        fwrite($fh, pack('s', $e['cmethod'])); // compression_method
+        fwrite($fh, pack('s', $e['modtime'])); // lastmod_time
+        fwrite($fh, pack('s', $e['moddate'])); // lastmod_date
+        fwrite($fh, pack('V', $e['crc_32']));  // crc-32
+        fwrite($fh, pack('I', $e['comsize'])); // compressed_size
+        fwrite($fh, pack('I', $e['uncsize'])); // uncompressed_size
+        fwrite($fh, pack('s', mb_strlen($cfilename, '8bit')));   // file_name_length
+        fwrite($fh, pack('s', 0));  // extra_field_length
+        fwrite($fh, $cfilename);    // file_name
+        // ignoring extra_field
+        fwrite($fh, $zdata);
+
+        // Append it to central dir
+        $e['external_attributes'] = (substr($cfilename, -1) === '/' && !$zdata) ? 16 : 32; // Directory or file name
+        $e['comments'] = '';
+
+        $cdrec .= $dirSignature;
+        $cdrec .= "\x0\x0";                                     // version made by
+        $cdrec .= pack('v', $e['vneeded']);                     // version needed to extract
+        $cdrec .= "\x0\x0";                                     // general bit flag
+        $cdrec .= pack('v', $e['cmethod']);                     // compression method
+        $cdrec .= pack('v', $e['modtime']);                     // lastmod time
+        $cdrec .= pack('v', $e['moddate']);                     // lastmod date
+        $cdrec .= pack('V', $e['crc_32']);                      // crc32
+        $cdrec .= pack('V', $e['comsize']);                     // compressed filesize
+        $cdrec .= pack('V', $e['uncsize']);                     // uncompressed filesize
+        $cdrec .= pack('v', mb_strlen($cfilename, '8bit'));     // file name length
+        $cdrec .= pack('v', 0);                                 // extra field length
+        $cdrec .= pack('v', mb_strlen($e['comments'], '8bit')); // file comment length
+        $cdrec .= pack('v', 0);                                 // disk number start
+        $cdrec .= pack('v', 0);                                 // internal file attributes
+        $cdrec .= pack('V', $e['external_attributes']);         // internal file attributes
+        $cdrec .= pack('V', $e['offset']);                      // relative offset of local header
+        $cdrec .= $cfilename;
+        $cdrec .= $e['comments'];
+    }
+
+    protected function _sheetToXML($idx, $template)
+    {
+        // locale floats fr_FR 1.234,56 -> 1234.56
+        $_loc = setlocale(LC_NUMERIC, 0);
+        setlocale(LC_NUMERIC, 'C');
+        $COLS = [];
+        $ROWS = [];
+        //        $SHEETVIEWS = '<sheetViews><sheetView tabSelected="1" workbookViewId="0"'.($this->rtl ? ' rightToLeft="1"' : '').'>';
+        $SHEETVIEWS = '';
+        $PANE = '';
+        if (count($this->sheets[$idx]['rows'])) {
+            if ($this->sheets[$idx]['frozen'] !== '' || isset($this->sheets[$idx]['frozen'][0]) || isset($this->sheets[$idx]['frozen'][1])) {
+                //                $AC = 'A1'; // Active Cell
+                $x = $y = 0;
+                if (is_string($this->sheets[$idx]['frozen'])) {
+                    $AC = $this->sheets[$idx]['frozen'];
+                    self::cell2coord($AC, $x, $y);
+                } else {
+                    if (isset($this->sheets[$idx]['frozen'][0])) {
+                        $x = $this->sheets[$idx]['frozen'][0];
+                    }
+                    if (isset($this->sheets[$idx]['frozen'][1])) {
+                        $y = $this->sheets[$idx]['frozen'][1];
+                    }
+                    $AC = self::coord2cell($x, $y);
+                }
+                if ($x > 0 || $y > 0) {
+                    $split = '';
+                    if ($x > 0) {
+                        $split .= ' xSplit="' . $x . '"';
+                    }
+                    if ($y > 0) {
+                        $split .= ' ySplit="' . $y . '"';
+                    }
+                    $activepane = 'bottomRight';
+                    if ($x > 0 && $y === 0) {
+                        $activepane = 'topRight';
+                    }
+                    if ($x === 0 && $y > 0) {
+                        $activepane = 'bottomLeft';
+                    }
+                    $PANE .= '<pane' . $split . ' topLeftCell="' . $AC . '" activePane="' . $activepane . '" state="frozen"/>';
+                    $PANE .= '<selection activeCell="' . $AC . '" sqref="' . $AC . '"/>';
+                }
+            }
+            if ($this->rtl || $PANE) {
+                $SHEETVIEWS .= '<sheetViews><sheetView workbookViewId="0"' . ($this->rtl ? ' rightToLeft="1"' : '');
+                $SHEETVIEWS .= $PANE ? ">\r\n" . $PANE . "\r\n</sheetView>" : ' />';
+                $SHEETVIEWS .= "\r\n</sheetViews>";
+            }
+            $COLS[] = '<cols>';
+            $CUR_ROW = 0;
+            $COL = [];
+            foreach ($this->sheets[$idx]['rows'] as $r) {
+                $CUR_ROW++;
+                $row = '';
+                $CUR_COL = 0;
+                $RH = 0; // row height
+                foreach ($r as $v) {
+                    $CUR_COL++;
+                    if (!isset($COL[$CUR_COL])) {
+                        $COL[$CUR_COL] = 0;
+                    }
+                    $cname = $this->num2name($CUR_COL) . $CUR_ROW;
+                    if ($v === null || $v === '') {
+                        $row .= '<c r="' . $cname . '"/>';
+                        continue;
+                    }
+                    $ct = $cv = $cf = null;
+                    $N = $A = $F = $FL = $C = $BG = $FS = 0;
+                    $BR = '';
+                    if (is_string($v)) {
+                        if ($v[0] === "\0") { // RAW value as string
+                            $v = substr($v, 1);
+                            $vl = mb_strlen($v);
+                        } else {
+                            if (strpos($v, '<') !== false) { // tags?
+                                if (strpos($v, '<b>') !== false) {
+                                    $F += self::F_BOLD;
+                                }
+                                if (strpos($v, '<i>') !== false) {
+                                    $F += self::F_ITALIC;
+                                }
+                                if (strpos($v, '<u>') !== false) {
+                                    $F += self::F_UNDERLINE;
+                                }
+                                if (strpos($v, '<s>') !== false) {
+                                    $F += self::F_STRIKE;
+                                }
+                                if (preg_match('/<style([^>]+)>/', $v, $m)) {
+                                    if (preg_match('/ color="([^"]+)"/', $m[1], $m2)) {
+                                        $F += self::F_COLOR;
+                                        $c = ltrim($m2[1], '#');
+                                        $C = strlen($c) === 8 ? $c : ('FF' . $c);
+                                    }
+                                    if (preg_match('/ bgcolor="([^"]+)"/', $m[1], $m2)) {
+                                        $FL += self::FL_COLOR;
+                                        $c = ltrim($m2[1], '#');
+                                        $BG = strlen($c) === 8 ? $c : ('FF' . $c);
+                                    }
+                                    if (preg_match('/ height="([^"]+)"/', $m[1], $m2)) {
+                                        $RH = $m2[1];
+                                    }
+                                    if (preg_match('/ nf="([^"]+)"/', $m[1], $m2)) {
+                                        $c = htmlspecialchars_decode($m2[1], ENT_QUOTES);
+                                        $N = $this->getNumFmtId($c);
+                                    }
+                                    if (preg_match('/ border="([^"]+)"/', $m[1], $m2)) {
+                                        $b = htmlspecialchars_decode($m2[1], ENT_QUOTES);
+                                        if ($b && $b !== 'none') {
+                                            $BR = $b;
+                                        }
+                                    }
+                                    if (preg_match('/ font-size="([^"]+)"/', $m[1], $m2)) {
+                                        $FS = (int)$m2[1];
+                                        if ($RH === 0) { // fix row height
+                                            $RH = ($FS > $this->defaultFontSize) ? round($FS * 1.50, 1) : 0;
+                                        }
+                                    }
+                                }
+                                if (strpos($v, '<left>') !== false) {
+                                    $A += self::A_LEFT;
+                                }
+                                if (strpos($v, '<center>') !== false) {
+                                    $A += self::A_CENTER;
+                                }
+                                if (strpos($v, '<right>') !== false) {
+                                    $A += self::A_RIGHT;
+                                }
+                                if (strpos($v, '<top>') !== false) {
+                                    $A += self::A_TOP;
+                                }
+                                if (strpos($v, '<middle>') !== false) {
+                                    $A += self::A_MIDDLE;
+                                }
+                                if (strpos($v, '<bottom>') !== false) {
+                                    $A += self::A_BOTTOM;
+                                }
+                                if (strpos($v, '<wraptext>') !== false) {
+                                    $A += self::A_WRAPTEXT;
+                                }
+                                if (preg_match('/<a href="(https?:\/\/[^"]+)">(.*?)<\/a>/i', $v, $m)) {
+                                    $h = explode('#', $m[1]);
+                                    $this->extLinkId++;
+                                    $this->sheets[$idx]['hyperlinks'][] = ['ID' => 'rId' . $this->extLinkId, 'R' => $cname, 'H' => $h[0], 'L' => isset($h[1]) ? $h[1] : ''];
+                                    $F += self::F_HYPERLINK; // Hyperlink
+                                }
+                                if (preg_match('/<a href="(mailto?:[^"]+)">(.*?)<\/a>/i', $v, $m)) {
+                                    $this->extLinkId++;
+                                    $this->sheets[$idx]['hyperlinks'][] = ['ID' => 'rId' . $this->extLinkId, 'R' => $cname, 'H' => $m[1], 'L' => ''];
+                                    $F += self::F_HYPERLINK; // mailto hyperlink
+                                }
+                                if (preg_match('/<a href="([^"]+![^"]+)">(.*?)<\/a>/i', $v, $m)) {
+                                    $this->sheets[$idx]['hyperlinks'][] = ['ID' => null, 'R' => $cname, 'H' => null, 'L' => $m[1]];
+                                    $F += self::F_HYPERLINK; // internal hyperlink
+                                }
+                                if (preg_match('/<f([^>]*)>/', $v, $m)) {
+                                    $cf = strip_tags($v);
+                                    $v = 'formula';
+                                    if (preg_match('/ v="([^"]+)"/', $m[1], $m2)) {
+                                        $v = $m2[1];
+                                    }
+                                } else {
+                                    $v = strip_tags($v);
+                                }
+                            } // tags
+                            $vl = mb_strlen($v);
+                            if ($N) {
+                                $cv = ltrim($v, '+');
+                            } elseif ($v === '0' || preg_match('/^[-+]?[1-9]\d{0,14}$/', $v)) { // Integer as General
+                                $cv = ltrim($v, '+');
+                                if ($vl > 10) {
+                                    $N = self::N_INT; // [1] 0
+                                }
+                            } elseif (preg_match('/^[-+]?(0|[1-9]\d*)\.(\d+)$/', $v, $m)) {
+                                $cv = ltrim($v, '+');
+                                if (strlen($m[2]) < 3) {
+                                    $N = self::N_DEC;
+                                }
+                            } elseif (preg_match('/^\$[-+]?[0-9\.]+$/', $v)) { // currency $?
+                                $N = self::N_DOLLAR;
+                                $cv = ltrim($v, '+$');
+                            } elseif (preg_match('/^[-+]?[0-9\.]+( ₽| €)$/u', $v, $m)) { // currency ₽ €?
+                                if ($m[1] === ' ₽') {
+                                    $N = self::N_RUB;
+                                } elseif ($m[1] === ' €') {
+                                    $N = self::N_EURO;
+                                }
+                                $cv = trim($v, ' +₽€');
+                            } elseif (preg_match('/^([-+]?\d+)%$/', $v, $m)) {
+                                $cv = round($m[1] / 100, 2);
+                                $N = self::N_PERCENT_INT; // [9] 0%
+                            } elseif (preg_match('/^([-+]?\d+\.\d+)%$/', $v, $m)) {
+                                $cv = round($m[1] / 100, 4);
+                                $N = self::N_PRECENT_DEC; // [10] 0.00%
+                            } elseif (preg_match('/^(\d\d\d\d)-(\d\d)-(\d\d)$/', $v, $m)) {
+                                $cv = $this->date2excel($m[1], $m[2], $m[3]);
+                                $N = self::N_DATE; // [14] mm-dd-yy
+                            } elseif (preg_match('/^(\d\d)\/(\d\d)\/(\d\d\d\d)$/', $v, $m)) {
+                                $cv = $this->date2excel($m[3], $m[2], $m[1]);
+                                $N = self::N_DATE; // [14] mm-dd-yy
+                            } elseif (preg_match('/^(\d\d):(\d\d):(\d\d)$/', $v, $m)) {
+                                $cv = $this->date2excel(0, 0, 0, $m[1], $m[2], $m[3]);
+                                $N = self::N_TIME; // time
+                            } elseif (preg_match('/^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)$/', $v, $m)) {
+                                $cv = $this->date2excel($m[1], $m[2], $m[3], $m[4], $m[5], $m[6]);
+                                $N = ((int)$m[1] === 0) ? self::N_TIME : self::N_DATETIME; // [22] m/d/yy h:mm
+                            } elseif (preg_match('/^(\d\d)\/(\d\d)\/(\d\d\d\d) (\d\d):(\d\d):(\d\d)$/', $v, $m)) {
+                                $cv = $this->date2excel($m[3], $m[2], $m[1], $m[4], $m[5], $m[6]);
+                                $N = self::N_DATETIME; // [22] m/d/yy h:mm
+                            } elseif (preg_match('/^[0-9+-.]+$/', $v)) { // Long ?
+                                $A += ($A & (self::A_LEFT | self::A_CENTER)) ? 0 : self::A_RIGHT;
+                            } elseif (preg_match('/^https?:\/\/\S+$/i', $v)) {
+                                $h = explode('#', $v);
+                                $this->extLinkId++;
+                                $this->sheets[$idx]['hyperlinks'][] = ['ID' => 'rId' . $this->extLinkId, 'R' => $cname, 'H' => $h[0], 'L' => isset($h[1]) ? $h[1] : ''];
+                                $F += self::F_HYPERLINK; // Hyperlink
+                            } elseif (preg_match("/^[a-zA-Z0-9_\.\-]+@([a-zA-Z0-9][a-zA-Z0-9\-]*\.)+[a-zA-Z]{2,}$/", $v)) {
+                                $this->extLinkId++;
+                                $this->sheets[$idx]['hyperlinks'][] = ['ID' => 'rId' . $this->extLinkId, 'R' => $cname, 'H' => 'mailto:' . $v, 'L' => ''];
+                                $F += self::F_HYPERLINK; // Hyperlink
+                            }
+                            if (($N === self::N_DATE || $N === self::N_DATETIME) && $cv < 0) {
+                                $cv = null;
+                                $N = 0;
+                            }
+                        }
+                        if ($cv === null) {
+                            $v = $this->esc($v);
+                            if ($cf) {
+                                $ct = 'str';
+                                $cv = $v;
+                            } elseif (mb_strlen($v) > 160) {
+                                $ct = 'inlineStr';
+                                $cv = $v;
+                            } else {
+                                $ct = 's'; // shared string
+                                $cv = false;
+                                $skey = '~' . $v;
+                                if (isset($this->SI_KEYS[$skey])) {
+                                    $cv = $this->SI_KEYS[$skey];
+                                }
+                                if ($cv === false) {
+                                    $this->SI[] = $v;
+                                    $cv = count($this->SI) - 1;
+                                    $this->SI_KEYS[$skey] = $cv;
+                                }
+                            }
+                        }
+                    } elseif (is_int($v)) {
+                        $vl = mb_strlen((string)$v);
+                        $cv = $v;
+                    } elseif (is_float($v)) {
+                        $vl = mb_strlen((string)$v);
+                        $cv = $v;
+                    } elseif ($v instanceof \DateTime) {
+                        $vl = 16;
+                        $cv = $this->date2excel($v->format('Y'), $v->format('m'), $v->format('d'), $v->format('H'), $v->format('i'), $v->format('s'));
+                        $N = self::N_DATETIME; // [22] m/d/yy h:mm
+                    } else {
+                        continue;
+                    }
+                    $COL[$CUR_COL] = max($vl, $COL[$CUR_COL]);
+                    $cs = 0;
+                    if (($N + $A + $F + $FL + $FS > 0) || $BR !== '') {
+                        if ($FL === self::FL_COLOR) {
+                            $FL += self::FL_SOLID;
+                        }
+                        if (($F & self::F_HYPERLINK) && !($F & self::F_COLOR)) {
+                            $F += self::F_COLOR;
+                            $C = 'FF0563C1';
+                        }
+                        $XF_KEY = $N . '-' . $A . '-' . $F . '-' . $FL . '-' . $C . '-' . $BG . '-' . $BR . '-' . $FS;
+                        if (isset($this->XF_KEYS[$XF_KEY])) {
+                            $cs = $this->XF_KEYS[$XF_KEY];
+                        }
+                        if ($cs === 0) {
+                            $cs = count($this->XF);
+                            $this->XF_KEYS[$XF_KEY] = $cs;
+                            $this->XF[] = [$N, $A, $F, $FL, $C, $BG, $BR, $FS];
+                        }
+                    }
+                    $row .= '<c r="' . $cname . '"' . ($ct ? ' t="' . $ct . '"' : '') . ($cs ? ' s="' . $cs . '"' : '') . '>'
+                        . ($cf ? '<f>' . $cf . '</f>' : '')
+                        . ($ct === 'inlineStr' ? '<is><t>' . $cv . '</t></is>' : '<v>' . $cv . '</v>') . "</c>\r\n";
+                }
+                $ROWS[] = '<row r="' . $CUR_ROW . '"' . ($RH ? ' customHeight="1" ht="' . $RH . '"' : '') . '>' . $row . "</row>";
+            }
+            foreach ($COL as $k => $max) {
+                $w = isset($this->sheets[$idx]['colwidth'][$k]) ? $this->sheets[$idx]['colwidth'][$k] : min($max + 1, 60);
+                $COLS[] = '<col min="' . $k . '" max="' . $k . '" width="' . $w . '" customWidth="1" />';
+            }
+            $COLS[] = '</cols>';
+            $REF = 'A1:' . $this->num2name(count($COL)) . $CUR_ROW;
+        } else {
+            $ROWS[] = '<row r="1"><c r="A1" t="s"><v>0</v></c></row>';
+            $REF = 'A1:A1';
+        }
+
+        $AUTOFILTER = '';
+        if ($this->sheets[$idx]['autofilter']) {
+            $AUTOFILTER = '<autoFilter ref="' . $this->sheets[$idx]['autofilter'] . '" />';
+        }
+
+        $MERGECELLS = [];
+        if (count($this->sheets[$idx]['mergecells'])) {
+            $MERGECELLS[] = '';
+            $MERGECELLS[] = '<mergeCells count="' . count($this->sheets[$idx]['mergecells']) . '">';
+            foreach ($this->sheets[$idx]['mergecells'] as $m) {
+                $MERGECELLS[] = '<mergeCell ref="' . $m . '"/>';
+            }
+            $MERGECELLS[] = '</mergeCells>';
+        }
+
+        $HYPERLINKS = [];
+        if (count($this->sheets[$idx]['hyperlinks'])) {
+            $HYPERLINKS[] = '<hyperlinks>';
+            foreach ($this->sheets[$idx]['hyperlinks'] as $h) {
+                $HYPERLINKS[] = '<hyperlink ref="' . $h['R'] . '"' . ($h['ID'] ? ' r:id="' . $h['ID'] . '"' : '') . ' location="' . $this->esc($h['L']) . '" display="' . $this->esc($h['H'] . ($h['L'] ? ' - ' . $h['L'] : '')) . '" />';
+            }
+            $HYPERLINKS[] = '</hyperlinks>';
+        }
+
+        //restore locale
+        setlocale(LC_NUMERIC, $_loc);
+
+        return str_replace(
+            ['{REF}', '{COLS}', '{ROWS}', '{AUTOFILTER}', '{MERGECELLS}', '{HYPERLINKS}', '{SHEETVIEWS}'],
+            [
+                $REF,
+                implode("\r\n", $COLS),
+                implode("\r\n", $ROWS),
+                $AUTOFILTER,
+                implode("\r\n", $MERGECELLS),
+                implode("\r\n", $HYPERLINKS),
+                $SHEETVIEWS
+            ],
+            $template
+        );
+    }
+
+    public function num2name($num)
+    {
+        $numeric = ($num - 1) % 26;
+        $letter = chr(65 + $numeric);
+        $num2 = (int)(($num - 1) / 26);
+        if ($num2 > 0) {
+            return $this->num2name($num2) . $letter;
+        }
+        return $letter;
+    }
+
+    public function date2excel($year, $month, $day, $hours = 0, $minutes = 0, $seconds = 0)
+    {
+        $excelTime = (($hours * 3600) + ($minutes * 60) + $seconds) / 86400;
+        if ((int)$year === 0) {
+            return $excelTime;
+        }
+        // self::CALENDAR_WINDOWS_1900
+        $excel1900isLeapYear = True;
+        if (($year === 1900) && ($month <= 2)) {
+            $excel1900isLeapYear = False;
+        }
+        $myExcelBaseDate = 2415020;
+        // Julian base date Adjustment
+        if ($month > 2) {
+            $month -= 3;
+        } else {
+            $month += 9;
+            --$year;
+        }
+        $century = substr($year, 0, 2);
+        $decade = substr($year, 2, 2);
+        //    Calculate the Julian Date, then subtract the Excel base date (JD 2415020 = 31-Dec-1899 Giving Excel Date of 0)
+        $excelDate = floor((146097 * $century) / 4) + floor((1461 * $decade) / 4) + floor((153 * $month + 2) / 5) + $day + 1721119 - $myExcelBaseDate + $excel1900isLeapYear;
+        return (float)$excelDate + $excelTime;
+    }
+
+    public function setDefaultFont($name)
+    {
+        $this->defaultFont = $name;
+        return $this;
+    }
+
+    public function setDefaultFontSize($size)
+    {
+        $this->defaultFontSize = $size;
+        return $this;
+    }
+
+    public function setTitle($title)
+    {
+        $this->title = $title;
+        return $this;
+    }
+    public function setSubject($subject)
+    {
+        $this->subject = $subject;
+        return $this;
+    }
+    public function setAuthor($author)
+    {
+        $this->author = $author;
+        return $this;
+    }
+    public function setCompany($company)
+    {
+        $this->company = $company;
+        return $this;
+    }
+    public function setManager($manager)
+    {
+        $this->manager = $manager;
+        return $this;
+    }
+    public function setKeywords($keywords)
+    {
+        $this->keywords = $keywords;
+        return $this;
+    }
+    public function setDescription($description)
+    {
+        $this->description = $description;
+        return $this;
+    }
+    public function setCategory($category)
+    {
+        $this->category = $category;
+        return $this;
+    }
+
+    public function setApplication($application)
+    {
+        $this->application = $application;
+        return $this;
+    }
+    public function setLastModifiedBy($lastModifiedBy)
+    {
+        $this->lastModifiedBy = $lastModifiedBy;
+        return $this;
+    }
+
+    public function autoFilter($range)
+    {
+        $this->sheets[$this->curSheet]['autofilter'] = $range;
+        return $this;
+    }
+
+    public function mergeCells($range)
+    {
+        $this->sheets[$this->curSheet]['mergecells'][] = $range;
+        return $this;
+    }
+
+    public function setColWidth($col, $width)
+    {
+        $this->sheets[$this->curSheet]['colwidth'][$col] = $width;
+        return $this;
+    }
+    public function rightToLeft($value = true)
+    {
+        $this->rtl = $value;
+        return $this;
+    }
+
+    public function esc($str)
+    {
+        // XML UTF-8: #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+        // but we use fast version
+        return str_replace(['&', '<', '>', "\x00", "\x03", "\x0B"], ['&amp;', '&lt;', '&gt;', '', '', ''], $str);
+    }
+
+    public function getNumFmtId($code)
+    {
+        if (isset($this->NF[$code])) { // id?
+            return (int)$code;
+        }
+        if (isset($this->NF_KEYS[$code])) {
+            return $this->NF_KEYS[$code];
+        }
+        $id = 197 + count($this->NF); // custom
+        $this->NF[$id] = $code;
+        $this->NF_KEYS[$code] = $id;
+        return $id;
+    }
+
+
+    public static function raw($value)
+    {
+        return "\0" . $value;
+    }
+
+    public static function cell2coord($cell, &$x, &$y)
+    {
+        $x = $y = 0;
+        $lettercount = 0;
+        $cell = str_replace([' ', '\t', '\r', '\n', '\v', '\0'], '', $cell);
+        if (empty($cell)) {
+            return;
+        }
+        $cell = strtoupper($cell);
+        for ($i = 0, $len = strlen($cell); $i < $len; $i++) {
+            if ($cell[$i] >= 'A' && $cell[$i] <= 'Z') {
+                $lettercount++;
+            }
+        }
+        if ($lettercount > 0) {
+            $x = ord($cell[$lettercount - 1]) - ord('A');
+            $e = 1;
+            for ($i = $lettercount - 2; $i >= 0; $i--) {
+                $x += (ord($cell[$i]) - ord('A') + 1) * (26 ** $e);
+                $e++;
+            }
+        }
+        if ($lettercount < strlen($cell)) {
+            $y = ((int)substr($cell, $lettercount)) - 1;
+        }
+    }
+
+    public static function coord2cell($x, $y)
+    {
+        $c = '';
+        for ($i = $x; $i >= 0; $i = ((int)($i / 26)) - 1) {
+            $c = chr(ord('A') + $i % 26) . $c;
+        }
+        return $c . ($y + 1);
+    }
+
+    public function freezePanes($cell)
+    {
+        $this->sheets[$this->curSheet]['frozen'] = $cell;
+        return $this;
+    }
+}
