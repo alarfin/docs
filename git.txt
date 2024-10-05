@@ -17,6 +17,11 @@ If not working this process use personal access token.
 5. git push --set-upstream origin main
 6. git push
 
+If repository not found use:
+git remote set-url origin https://github.com/MyRepo/project.git
+OR if you are using SSH;
+git remote set-url origin git@github.com:MyRepo/project.git
+
 Git command:
 Git setup: 
 git config --global user.name "Al Arfin"
