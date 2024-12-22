@@ -5,6 +5,7 @@
         'name' => 'required|string|max:191|unique:users,name,'.$user->id, // unique name validation update time
         'email' => 'required|email:rfc,dns',
         'image' => 'mimes:jpeg,jpg,png,gif|required|max:10000',
+        'file' => 'required|mimes:xlsx,csv,doc,docx,ppt,pptx,ods,odt,odp',
         'password' =>  [
             'nullable',
             'string',
