@@ -1,0 +1,26 @@
+1. Check body condition:
+2. Check manufacture date: 
+	Open cmd file and write systeminfo.exe
+	Show BIOS version: Manufacturing Date check
+3. Check battery health:
+	Open cmd file and write Powercfg/batteryreport
+	C:\Users\ROWTECH\battery-report.html this link and open it on the browser.
+	(Charge capacity*100)/design capacity = must be around 80
+4. Display check:
+	Search in google online display check
+	Example website: https://testmyscreen.com
+5. Touch check in touchscreen laptop
+6. Hard disk condition:
+	Check HDD or SSD
+	Download this software from https://www.hdsentinel.com and check the condition.
+	Must be health up to 80%
+7. Keyboard check:
+	Go to https://en.key-test.ru and check all buttons.
+8. Open webcam:
+9. Processor check: 
+	recommended for current generation or up to 3-4 latest generation laptops.
+10. Speaker check.
+11. Specification check:
+ 	Check the laptop specification online.
+12. 
+
