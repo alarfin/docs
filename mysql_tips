@@ -1,0 +1,6 @@
+#Problem -1 : #1273 – Unknown collation: ‘utf8mb4_unicode_520_ci’
+  Open the sql file in your text editor
+  Find and replace all utf8mb4_unicode_520_ci with utf8mb4_unicode_ci
+  Save and upload to a fresh mySql db
+
+  
