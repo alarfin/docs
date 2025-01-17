@@ -19,6 +19,8 @@
     })
 
 # Ajax form submit with form all data 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    e.preventDefault();
     function storeCustomer() {
         var formData = new FormData($('#customer-form')[0]);
         $.ajax({
@@ -35,6 +37,8 @@
                         title: 'Success',
                         text: response.message,
                     }).then((result) => {
+                        // window.location.replace("https://stackoverflow.com");
+                        // window.location.href = "https://stackoverflow.com";
                         // $('#table').DataTable().ajax.reload();
                     });
                 } else {
