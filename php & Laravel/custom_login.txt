@@ -1,19 +1,19 @@
 # Password check process 01
     $user = User::find($id);
     $hasher = app('hash');
-    if ($hasher->check($request->pssword, $user->password)) {
+    if ($hasher->check($request->password, $user->password)) {
         // Success
     }
 
 # Password check process 02
     import class -> use Illuminate\Support\Facades\Hash;
     $user = User::find($id);
-    if (Hash::check($request->pssword, $user->password)) {
+    if (Hash::check($request->password, $user->password)) {
         // Success
     }
 
 # Password check process 03
-    if (password_verify($request->pssword, $user->password)) {
+    if (password_verify($request->password, $user->password)) {
         // Success
     }
 
