@@ -1,0 +1,102 @@
+1. Create Service provider: S3ClientServiceProvider
+    Code look like:
+    <?php
+
+    namespace App\Providers;
+
+    use Aws\S3\S3Client;
+    use Illuminate\Filesystem\FilesystemAdapter;
+    use Illuminate\Support\ServiceProvider;
+    use Illuminate\Support\Facades\Storage;
+    use League\Flysystem\Filesystem;
+    use League\Flysystem\AwsS3V3\AwsS3V3Adapter;
+
+    class S3ClientServiceProvider extends ServiceProvider
+    {
+        /**
+        * Register services.
+        */
+        public function register(): void
+        {
+            //
+        }
+
+        /**
+        * Bootstrap services.
+        */
+        public function boot(): void
+        {
+            Storage::extend('s3-nochecksum', function ($app, $config) {
+                $client = new S3Client([
+                    'version' => 'latest',
+                    'region' => $config['region'],
+                    'endpoint' => $config['endpoint'] ?? null,
+                    'use_path_style_endpoint' => $config['use_path_style_endpoint'] ?? false,
+                    'credentials' => [
+                        'key' => $config['key'],
+                        'secret' => $config['secret'],
+                    ],
+                ]);
+
+                // Remove checksum headers
+                $client->getHandlerList()->appendBuild(
+                    function (callable $handler) {
+                        return function ($command, $request) use ($handler) {
+                            $request = $request->withoutHeader('x-amz-checksum-crc32');
+                            $request = $request->withoutHeader('x-amz-sdk-checksum-algorithm');
+                            // $request = $request->withoutHeader('x-amz-acl');
+                            return $handler($command, $request);
+                        };
+                    }
+                );
+
+                $adapter = new AwsS3V3Adapter($client, $config['bucket']);
+                $flysystem = new Filesystem($adapter);
+
+                // ✅ Return the Laravel FilesystemAdapter wrapper
+                return new FilesystemAdapter($flysystem, $adapter, $config);
+            });
+        }
+    }
+
+2. Register the service App\Providers\S3ClientServiceProvider::class,
+    For older laravel:
+    config->app.php->
+    'providers' => [
+        // ......
+        App\Providers\S3ClientServiceProvider::class
+    ]
+    For new laravel:
+    bootstrap->providers.php->
+    return [
+        // ...
+        App\Providers\S3ClientServiceProvider::class,
+    ];
+
+3. Update filesystem:
+    config->filesystems.php->
+    'disks' => [
+        // .....
+        'backblaze' => [
+            'driver'    => 's3-nochecksum',
+            'key'       => env('BACKBLAZE_ACCESS_KEY_ID'),
+            'secret'    => env('BACKBLAZE_SECRET_ACCESS_KEY'),
+            'region'    => env('BACKBLAZE_DEFAULT_REGION'),
+            'bucket'    => env('BACKBLAZE_BUCKET'),
+            'endpoint'  => env('BACKBLAZE_ENDPOINT'),
+            'url'       => env('BACKBLAZE_URL'),
+            'use_path_style_endpoint' => true, // important for B2 compatibility
+            'throw' => true,
+        ],
+
+    ],
+
+4. Update .env file:
+    FILESYSTEM_DRIVER="backblaze"
+
+    BACKBLAZE_ACCESS_KEY_ID="00522225ce90a80000000003"
+    BACKBLAZE_SECRET_ACCESS_KEY="K005l4BdFFQnDAn4F/m5M9bFrGShB4"
+    BACKBLAZE_DEFAULT_REGION="us-east-005"
+    BACKBLAZE_BUCKET="bigdokan"
+    BACKBLAZE_ENDPOINT="https://s3.us-east-005.backblazeb2.com"
+    BACKBLAZE_URL="https://f005.backblazeb2.com/file/bigdokan"
