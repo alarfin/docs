@@ -1,0 +1,22 @@
+Make sure you have Node.js installed:
+Open commad promt and run these command-
+node -v
+npm -v
+
+Go to your project root location and open command promt:
+npm init -y
+  
+Install npm & SASS package-
+npm install --save-dev sass
+
+Create style.css file:
+npx sass assets/scss/main.scss assets/css/style.css
+
+Live change update and generate style.min.css file:
+npx sass --watch assets/scss/main.scss assets/css/style.css
+
+Create style.min.css file:
+npx sass assets/scss/main.scss assets/css/style.min.css --style=compressed
+
+Live change update and generate style.min.css file:
+npx sass --watch assets/scss/main.scss:assets/css/style.min.css --style=compressed
