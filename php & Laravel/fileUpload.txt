@@ -10,6 +10,44 @@
         return $fileUrl;
     }
 
+Laravel 12 :
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Illuminate\Support\Str;
+public static function saveImage($file, $path, $width = null, $height = null)
+    {
+        if (!file_exists(storage_path('app/') . $path)) {
+            mkdir(storage_path('app/') . $path, 0755, true);
+        }
+
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $slug = self::universalSlug($originalName, 45);
+
+        // Get extension
+        $extension = $file->getClientOriginalExtension();
+
+        // Create final filename
+        $file_url = $slug . '-' . Str::random(5) . '.' . $extension;
+
+        if (in_array(strtolower($extension), ['gif'])) {
+            $file->storeAs($path, $file_url . '.' . $extension);
+        } else {
+            $manager = new ImageManager(new GdDriver());
+            // Read and resize
+            $image = $manager->read($file->getRealPath());
+
+            // Only resize if both width and height are present and > 0
+            if (!empty($width) && !empty($height)) {
+                $image->resize($width, $height, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                });
+            }
+            $image->save(storage_path('app/') . $path . $file_url);
+        }
+
+        return $path . $file_url;
+    }
 2. File Upload by laravel intervention image 
     public function imageUpload($file, $path, $width = null, $height = null, $watermark = null)
     {
