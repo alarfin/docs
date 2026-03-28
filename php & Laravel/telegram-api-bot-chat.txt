@@ -1,0 +1,28 @@
+1. Open telegram app or web.
+2. Search BotFather (Verified) user select.
+3. Type /start
+4. Click /token link
+5. Type /newbot
+6. Type your bot name like: alarfin
+7. Type bot username like: alarfin_bot (last add _bot)
+8. Open link: https://api.telegram.org/bot8508391406:AAGEW7YrG_0wuiZDuZ2ubZOqAEKvbDqrkeE/getUpdates
+	{
+  "ok": true,
+  "result": [
+    {
+      "update_id": 123456,
+      "message": {
+        "chat": {
+          "id": 6454106370,
+          "first_name": "YourName"
+        },
+        "text": "hi"
+      }
+    }
+  ]
+}
+Here "id": 6454106370, is Chat ID.
+
+9. "result": []
+	Open app & search your bot username in left search bar & click start & type Hi message.
+	Open link: https://api.telegram.org/bot8508391406:AAGEW7YrG_0wuiZDuZ2ubZOqAEKvbDqrkeE/getUpdates & now you get Chat ID
