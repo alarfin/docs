@@ -26,3 +26,31 @@ Here "id": 6454106370, is Chat ID.
 9. "result": []
 	Open app & search your bot username in left search bar & click start & type Hi message.
 	Open link: https://api.telegram.org/bot8508391406:AAGEW7YrG_0wuiZDuZ2ubZOqAEKvbDqrkeE/getUpdates & now you get Chat ID
+
+
+php code:
+@php
+	$token = '8508391406:AAGEW7YrG_0wuiZDuZ2ubZOqAEKvbDqrkeE';
+	$chat_id = '6454106370';
+	$chat_name = json_decode($first_order->shipping_address)->name ?? 'Unknown';
+	$chat_phone = json_decode($first_order->shipping_address)->phone ?? 'N/A';
+	$chat_email = json_decode($first_order->shipping_address)->email ?? 'N/A';
+	$chat_product = $product_names;
+	$chat_price = single_price($order->grand_total);
+
+	$chat_message = "🛒 New Order Received\n";
+	$chat_message .= "Name: $chat_name\n";
+	$chat_message .= "Phone: $chat_phone\n";
+	$chat_message .= "Email: $chat_email\n";
+	$chat_message .= "Product: $chat_product\n";
+	$chat_message .= "Price: $chat_price";
+
+	$url = "https://api.telegram.org/bot$token/sendMessage";
+
+	$data = [
+		'chat_id' => $chat_id,
+		'text' => $chat_message,
+	];
+
+	file_get_contents($url . '?' . http_build_query($data));
+@endphp
