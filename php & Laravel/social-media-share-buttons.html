@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Share Buttons - Premium Design</title>
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    :root {
+      --fb: #1877F2;
+      --x: #000000;
+      --linkedin: #0A66C2;
+      --whatsapp: #25D366;
+      --telegram: #0088cc;
+      --reddit: #FF4500;
+      --pinterest: #E60023;
+      --email: #EA4335;
+      --tumblr: #36465D;
+      --vk: #0077FF;
+      --line: #00B900;
+      --copy: #495057;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      padding: 40px 20px;
+      margin: 0;
+    }
+
+    .social-share {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ===== Button Base ===== */
+    .share-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 4px;
+      color: #ffffff !important;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none !important;
+      cursor: pointer;
+      transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      line-height: 1;
+      overflow: visible;
+    }
+
+    .share-btn i {
+      font-size: 16px;
+      transition: transform 0.25s ease;
+    }
+
+    .share-btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+      filter: brightness(1.08);
+    }
+
+    .share-btn:hover i {
+      transform: scale(1.12);
+    }
+
+    .share-btn:active {
+      transform: translateY(-1px);
+    }
+
+    /* ===== Brand Colors ===== */
+    .share-facebook   { background: var(--fb); }
+    .share-x          { background: var(--x); }
+    .share-linkedin   { background: var(--linkedin); }
+    .share-whatsapp   { background: var(--whatsapp); }
+    .share-telegram   { background: var(--telegram); }
+    .share-reddit     { background: var(--reddit); }
+    .share-pinterest  { background: var(--pinterest); }
+    .share-email      { background: var(--email); }
+    .share-tumblr     { background: var(--tumblr); }
+    .share-vk         { background: var(--vk); }
+    .share-line       { background: var(--line); }
+    .share-copy       { background: var(--copy); }
+
+    /* =========================================
+       GLOBAL CUSTOM TOOLTIP
+       যেকোনো এলিমেন্টে data-tooltip="Text" দিলেই কাজ করবে
+    ========================================= */
+    [data-tooltip] {
+      position: relative;
+      cursor: pointer;
+    }
+
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(80% + 15px);
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: #1e293b;
+      color: #ffffff;
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 7px 14px;
+      border-radius: 25px;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      z-index: 9999;
+    }
+
+    /* Tooltip Arrow */
+    [data-tooltip]::before {
+      content: "";
+      position: absolute;
+      bottom: calc(80% + 4px);
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      border: 6px solid transparent;
+      border-top-color: #1e293b;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 9999;
+    }
+
+    [data-tooltip]:hover::after,
+    [data-tooltip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 640px) {
+      .share-btn span {
+        display: none;
+      }
+
+      .share-btn {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        border-radius: 50%;
+      }
+
+      [data-tooltip]::after {
+        bottom: calc(80% + 15px);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="social-share" id="socialShare"></div>
+
+  <script>
+    (function () {
+      const pageUrl   = encodeURIComponent(window.location.href);
+      const pageTitle = encodeURIComponent(document.title);
+
+      const platforms = [
+        {
+          name: "Facebook",
+          class: "share-facebook",
+          icon: "fab fa-facebook-f",
+          url: `https://www.facebook.com/sharer/sharer.php?u=${pageUrl}`
+        },
+        {
+          name: "X (Twitter)",
+          class: "share-x",
+          icon: "fab fa-x-twitter",
+          url: `https://twitter.com/intent/tweet?url=${pageUrl}&text=${pageTitle}`
+        },
+        {
+          name: "LinkedIn",
+          class: "share-linkedin",
+          icon: "fab fa-linkedin-in",
+          url: `https://www.linkedin.com/sharing/share-offsite/?url=${pageUrl}`
+        },
+        {
+          name: "WhatsApp",
+          class: "share-whatsapp",
+          icon: "fab fa-whatsapp",
+          url: `https://api.whatsapp.com/send?text=${pageTitle}%20${pageUrl}`
+        },
+        {
+          name: "Telegram",
+          class: "share-telegram",
+          icon: "fab fa-telegram-plane",
+          url: `https://t.me/share/url?url=${pageUrl}&text=${pageTitle}`
+        },
+        {
+          name: "Reddit",
+          class: "share-reddit",
+          icon: "fab fa-reddit-alien",
+          url: `https://www.reddit.com/submit?url=${pageUrl}&title=${pageTitle}`
+        },
+        {
+          name: "Pinterest",
+          class: "share-pinterest",
+          icon: "fab fa-pinterest-p",
+          url: `https://pinterest.com/pin/create/button/?url=${pageUrl}&description=${pageTitle}`
+        },
+        {
+          name: "Email",
+          class: "share-email",
+          icon: "fas fa-envelope",
+          url: `mailto:?subject=${pageTitle}&body=${pageTitle}%0A%0A${pageUrl}`
+        },
+        {
+          name: "Tumblr",
+          class: "share-tumblr",
+          icon: "fab fa-tumblr",
+          url: `https://www.tumblr.com/widgets/share/tool?canonicalUrl=${pageUrl}&title=${pageTitle}`
+        },
+        {
+          name: "VK",
+          class: "share-vk",
+          icon: "fab fa-vk",
+          url: `https://vk.com/share.php?url=${pageUrl}`
+        },
+        {
+          name: "LINE",
+          class: "share-line",
+          icon: "fab fa-line",
+          url: `https://social-plugins.line.me/lineit/share?url=${pageUrl}`
+        },
+        {
+          name: "Copy Link",
+          class: "share-copy",
+          icon: "fas fa-link",
+          action: "copy"
+        }
+      ];
+
+      const container = document.getElementById("socialShare");
+
+      platforms.forEach(platform => {
+        const btn = document.createElement("a");
+        btn.className = `share-btn ${platform.class}`;
+        btn.href = platform.url || "#";
+
+        // Global Tooltip
+        btn.setAttribute("data-tooltip", platform.name);
+
+        // Accessibility (SEO + Screen Reader friendly)
+        btn.setAttribute("aria-label", `Share on ${platform.name}`);
+
+        btn.innerHTML = `
+          <i class="${platform.icon}" aria-hidden="true"></i>
+          <span>${platform.name}</span>
+        `;
+
+        if (platform.action === "copy") {
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+
+            navigator.clipboard.writeText(window.location.href)
+              .then(() => {
+                const span = btn.querySelector("span");
+                const originalText = span.textContent;
+
+                span.textContent = "Copied!";
+                btn.setAttribute("data-tooltip", "Copied!");
+
+                setTimeout(() => {
+                  span.textContent = originalText;
+                  btn.setAttribute("data-tooltip", platform.name);
+                }, 2000);
+              })
+              .catch(() => {
+                alert("Link copy failed. Please copy manually.");
+              });
+          });
+        } else {
+          btn.setAttribute("target", "_blank");
+          btn.setAttribute("rel", "noopener noreferrer");
+        }
+
+        container.appendChild(btn);
+      });
+    })();
+  </script>
+
+</body>
+</html>
